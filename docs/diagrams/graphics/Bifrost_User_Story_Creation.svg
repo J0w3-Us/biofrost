@@ -1,0 +1,106 @@
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#121212" />
+  
+  <!-- Main Card Container -->
+  <rect x="50" y="50" width="700" height="500" rx="16" fill="#1E1E1E" stroke="#333333" stroke-width="2" />
+  
+  <!-- Gradient Header with Pattern -->
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#6200EE;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9D46FF;stop-opacity:1" />
+    </linearGradient>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1"/>
+    </pattern>
+  </defs>
+  
+  <!-- Header Background -->
+  <rect x="50" y="50" width="700" height="80" rx="16" fill="url(#headerGrad)" />
+  <rect x="50" y="110" width="700" height="20" fill="url(#headerGrad)" /> <!-- Square bottom corners -->
+  <rect x="50" y="50" width="700" height="80" rx="16" fill="url(#grid)" /> <!-- Overlay grid -->
+
+  <!-- Title & Icon -->
+  <circle cx="100" cy="90" r="24" fill="#FFFFFF" fill-opacity="0.2" />
+  <text x="100" y="98" font-family="Arial, sans-serif" font-size="24" fill="#FFFFFF" text-anchor="middle">🚀</text>
+  <text x="140" y="98" font-family="Arial, sans-serif" font-size="22" fill="#FFFFFF" font-weight="bold">CREACIÓN DE PROYECTO</text>
+  <text x="680" y="98" font-family="Arial, sans-serif" font-size="14" fill="#E0E0E0" text-anchor="end" font-style="italic">US-PROJ-001</text>
+
+  <!-- Content Container -->
+  <g transform="translate(80, 160)">
+    
+    <!-- User Story Section (Left) -->
+    <g>
+      <!-- Reference Line -->
+      <line x1="10" y1="10" x2="10" y2="190" stroke="#444444" stroke-width="2" />
+      
+      <!-- Role -->
+      <circle cx="10" cy="30" r="6" fill="#03DAC6" />
+      <text x="30" y="35" font-family="Arial, sans-serif" font-size="14" fill="#03DAC6" font-weight="bold">COMO (Alumno)</text>
+      <text x="30" y="55" font-family="Arial, sans-serif" font-size="14" fill="#CCCCCC">Desarrollador Junior buscando visibilidad.</text>
+      
+      <!-- Action -->
+      <circle cx="10" cy="100" r="6" fill="#CF6679" />
+      <text x="30" y="105" font-family="Arial, sans-serif" font-size="14" fill="#CF6679" font-weight="bold">QUIERO (Registrar Proyecto)</text>
+      <text x="30" y="125" font-family="Arial, sans-serif" font-size="14" fill="#CCCCCC">Subir info, stack, video y docs.</text>
+
+      <!-- Goal -->
+      <circle cx="10" cy="170" r="6" fill="#BB86FC" />
+      <text x="30" y="175" font-family="Arial, sans-serif" font-size="14" fill="#BB86FC" font-weight="bold">PARA (Validación)</text>
+      <text x="30" y="195" font-family="Arial, sans-serif" font-size="14" fill="#CCCCCC">Obtener revisión y publicar en feria.</text>
+    </g>
+
+    <!-- Divider -->
+    <line x1="380" y1="0" x2="380" y2="220" stroke="#333333" stroke-width="2" stroke-dasharray="5,5" />
+
+    <!-- Acceptance Criteria Section (Right) -->
+    <g transform="translate(420, 0)">
+      <text x="0" y="30" font-family="Arial, sans-serif" font-size="16" fill="#FFFFFF" font-weight="bold">DEFINITION OF DONE ✅</text>
+      
+      <!-- List Items -->
+      <g transform="translate(0, 60)">
+        <path d="M 5 8 L 10 13 L 20 3" stroke="#03DAC6" stroke-width="2" fill="none" />
+        <text x="30" y="10" font-family="Arial, sans-serif" font-size="13" fill="#E0E0E0">Info básica + Stack Tecnológico</text>
+      </g>
+      
+      <g transform="translate(0, 95)">
+        <path d="M 5 8 L 10 13 L 20 3" stroke="#03DAC6" stroke-width="2" fill="none" />
+        <text x="30" y="10" font-family="Arial, sans-serif" font-size="13" fill="#E0E0E0">Video Pitch (MP4/YouTube)</text>
+      </g>
+      
+      <g transform="translate(0, 130)">
+        <path d="M 5 8 L 10 13 L 20 3" stroke="#03DAC6" stroke-width="2" fill="none" />
+        <text x="30" y="10" font-family="Arial, sans-serif" font-size="13" fill="#E0E0E0">Validación: Video &lt;= 100MB</text>
+      </g>
+
+       <g transform="translate(0, 165)">
+        <path d="M 5 8 L 10 13 L 20 3" stroke="#03DAC6" stroke-width="2" fill="none" />
+        <text x="30" y="10" font-family="Arial, sans-serif" font-size="13" fill="#E0E0E0">Estado Inicial: 'Borrador'</text>
+      </g>
+    </g>
+
+  </g>
+
+  <!-- Tags / Motivation Footer -->
+  <g transform="translate(80, 420)">
+    <!-- Tag 1 -->
+    <rect x="0" y="0" width="140" height="30" rx="15" fill="#332940" stroke="#BB86FC" stroke-width="1" />
+    <text x="70" y="20" font-family="Arial, sans-serif" font-size="12" fill="#BB86FC" text-anchor="middle">#AnsiedadEgreso</text>
+    
+    <!-- Tag 2 -->
+    <rect x="150" y="0" width="140" height="30" rx="15" fill="#293340" stroke="#4D96FF" stroke-width="1" />
+    <text x="220" y="20" font-family="Arial, sans-serif" font-size="12" fill="#4D96FF" text-anchor="middle">#ShowDontTell</text>
+
+    <!-- Tag 3 -->
+    <rect x="300" y="0" width="140" height="30" rx="15" fill="#294033" stroke="#03DAC6" stroke-width="1" />
+    <text x="370" y="20" font-family="Arial, sans-serif" font-size="12" fill="#03DAC6" text-anchor="middle">#Portafolio</text>
+  </g>
+  
+  <!-- Status Indicator Bottom Right -->
+  <g transform="translate(550, 420)">
+    <text x="0" y="20" font-family="Arial, sans-serif" font-size="12" fill="#666666">PRIORIDAD:</text>
+    <text x="80" y="20" font-family="Arial, sans-serif" font-size="12" fill="#CF6679" font-weight="bold">ALTA 🔥</text>
+  </g>
+
+</svg>

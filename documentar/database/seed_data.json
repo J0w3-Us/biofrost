@@ -1,0 +1,346 @@
+{
+  "_comment": "Datos de seed para IntegradorHub - Usar nombres de campos snake_case según FirestoreProperty",
+  "users": [
+    {
+      "id": "user-student-001",
+      "email": "20260001@alumno.utmetropolitana.edu.mx",
+      "nombre": "Ana",
+      "apellido_paterno": "López",
+      "apellido_materno": "Martínez",
+      "matricula": "20260001",
+      "foto_url": null,
+      "rol": "Alumno",
+      "grupo_id": "grupo-2026-dsm-a",
+      "carrera_id": "carrera-dsm",
+      "project_id": "proj-001",
+      "asignaciones": null,
+      "profesion": null,
+      "especialidad_docente": null,
+      "organizacion": null,
+      "created_at": "2026-02-17T09:00:00Z",
+      "updated_at": "2026-02-17T09:00:00Z",
+      "is_first_login": false
+    },
+    {
+      "id": "user-student-002",
+      "email": "20260002@alumno.utmetropolitana.edu.mx",
+      "nombre": "Carlos",
+      "apellido_paterno": "Ramírez",
+      "apellido_materno": "Silva",
+      "matricula": "20260002",
+      "foto_url": null,
+      "rol": "Alumno",
+      "grupo_id": "grupo-2026-dsm-a",
+      "carrera_id": "carrera-dsm",
+      "project_id": "proj-002",
+      "asignaciones": null,
+      "profesion": null,
+      "especialidad_docente": null,
+      "organizacion": null,
+      "created_at": "2026-02-17T09:00:00Z",
+      "updated_at": "2026-02-17T09:00:00Z",
+      "is_first_login": false
+    },
+    {
+      "id": "user-teacher-001",
+      "email": "juan.perez@utmetropolitana.edu.mx",
+      "nombre": "Juan",
+      "apellido_paterno": "Pérez",
+      "apellido_materno": "Gómez",
+      "matricula": null,
+      "foto_url": null,
+      "rol": "Docente",
+      "grupo_id": null,
+      "carrera_id": null,
+      "project_id": null,
+      "asignaciones": [
+        {
+          "carrera_id": "carrera-dsm",
+          "materia_id": "materia-proyecto-integrador",
+          "grupos_ids": ["grupo-2026-dsm-a"]
+        }
+      ],
+      "profesion": "Ingeniero en Sistemas Computacionales",
+      "especialidad_docente": "Desarrollo de Software",
+      "organizacion": "Universidad Tecnológica Metropolitana",
+      "created_at": "2024-08-01T10:00:00Z",
+      "updated_at": "2026-02-17T09:00:00Z",
+      "is_first_login": false
+    },
+    {
+      "id": "user-teacher-002",
+      "email": "maria.gonzalez@utmetropolitana.edu.mx",
+      "nombre": "María",
+      "apellido_paterno": "González",
+      "apellido_materno": "Torres",
+      "matricula": null,
+      "foto_url": null,
+      "rol": "Docente",
+      "grupo_id": null,
+      "carrera_id": null,
+      "project_id": null,
+      "asignaciones": [
+        {
+          "carrera_id": "carrera-dsm",
+          "materia_id": "materia-practicas-profesionales",
+          "grupos_ids": ["grupo-2026-dsm-a"]
+        },
+        {
+          "carrera_id": "carrera-dsm",
+          "materia_id": "materia-bases-datos",
+          "grupos_ids": ["grupo-2026-dsm-a"]
+        }
+      ],
+      "profesion": "Maestra en Ciencias Computacionales",
+      "especialidad_docente": "Bases de Datos y Arquitectura de Software",
+      "organizacion": "Universidad Tecnológica Metropolitana",
+      "created_at": "2024-08-01T10:00:00Z",
+      "updated_at": "2026-02-17T09:00:00Z",
+      "is_first_login": false
+    },
+    {
+      "id": "user-teacher-003",
+      "email": "roberto.martinez@utmetropolitana.edu.mx",
+      "nombre": "Roberto",
+      "apellido_paterno": "Martínez",
+      "apellido_materno": "López",
+      "matricula": null,
+      "foto_url": null,
+      "rol": "Docente",
+      "grupo_id": null,
+      "carrera_id": null,
+      "project_id": null,
+      "asignaciones": [
+        {
+          "carrera_id": "carrera-dsm",
+          "materia_id": "materia-programacion-web",
+          "grupos_ids": ["grupo-2026-dsm-a"]
+        }
+      ],
+      "profesion": "Ingeniero en Sistemas",
+      "especialidad_docente": "Desarrollo Web y Programación",
+      "organizacion": "Universidad Tecnológica Metropolitana",
+      "created_at": "2024-08-01T10:00:00Z",
+      "updated_at": "2026-02-17T09:00:00Z",
+      "is_first_login": false
+    },
+    {
+      "id": "user-admin-001",
+      "email": "admin@utmetropolitana.edu.mx",
+      "nombre": "Admin",
+      "apellido_paterno": "Sistema",
+      "apellido_materno": "Integrador",
+      "matricula": null,
+      "foto_url": null,
+      "rol": "SuperAdmin",
+      "grupo_id": null,
+      "carrera_id": null,
+      "project_id": null,
+      "asignaciones": null,
+      "profesion": null,
+      "especialidad_docente": null,
+      "organizacion": "Universidad Tecnológica Metropolitana",
+      "created_at": "2024-01-10T08:00:00Z",
+      "updated_at": "2024-01-10T08:00:00Z",
+      "is_first_login": false
+    }
+  ],
+  "carreras": [
+    {
+      "id": "carrera-dsm",
+      "nombre": "Desarrollo de Software Multiplataforma",
+      "nivel": "TSU",
+      "activo": true
+    },
+    {
+      "id": "carrera-iti",
+      "nombre": "Ingeniería en Tecnologías de la Información",
+      "nivel": "Ingeniería",
+      "activo": true
+    }
+  ],
+  "groups": [
+    {
+      "id": "grupo-2026-dsm-a",
+      "nombre": "5A",
+      "carrera": "DSM",
+      "turno": "Matutino",
+      "ciclo_activo": "2026-1",
+      "docentes_ids": ["user-teacher-001", "user-teacher-002", "user-teacher-003"],
+      "is_active": true,
+      "created_at": "2025-09-01T08:00:00Z"
+    }
+  ],
+  "materias": [
+    {
+      "id": "materia-proyecto-integrador",
+      "nombre": "Proyecto Integrador I",
+      "clave": "PI-I",
+      "carrera_id": "carrera-dsm",
+      "cuatrimestre": 5,
+      "is_active": true,
+      "es_alta_prioridad": true,
+      "created_at": "2024-01-10T08:00:00Z"
+    },
+    {
+      "id": "materia-practicas-profesionales",
+      "nombre": "Prácticas Profesionales",
+      "clave": "PP",
+      "carrera_id": "carrera-dsm",
+      "cuatrimestre": 6,
+      "is_active": true,
+      "es_alta_prioridad": true,
+      "created_at": "2024-01-10T08:00:00Z"
+    },
+    {
+      "id": "materia-bases-datos",
+      "nombre": "Bases de Datos",
+      "clave": "BD", 
+      "carrera_id": "carrera-dsm",
+      "cuatrimestre": 4,
+      "is_active": true,
+      "es_alta_prioridad": false,
+      "created_at": "2024-01-10T08:00:00Z"
+    },
+    {
+      "id": "materia-programacion-web",
+      "nombre": "Programación Web",
+      "clave": "PW",
+      "carrera_id": "carrera-dsm",
+      "cuatrimestre": 3,
+      "is_active": true,
+      "es_alta_prioridad": false,
+      "created_at": "2024-01-10T08:00:00Z"
+    },
+    {
+      "id": "materia-proyecto-integrador-ii",
+      "nombre": "Proyecto Integrador II",
+      "clave": "PI-II",
+      "carrera_id": "carrera-dsm",
+      "cuatrimestre": 6,
+      "is_active": true,
+      "es_alta_prioridad": true,
+      "created_at": "2024-01-10T08:00:00Z"
+    }
+  ],
+  "projects": [
+    {
+      "id": "proj-001",
+      "titulo": "Kiosko Digital Universitario",
+      "materia": "Proyecto Integrador I",
+      "materia_id": "materia-proyecto-integrador",
+      "ciclo": "2026-1",
+      "grupo_id": "grupo-2026-dsm-a",
+      "lider_id": "user-student-001",
+      "miembros_ids": [],
+      "docente_id": "user-teacher-001",
+      "estado": "Evaluado",
+      "stack_tecnologico": [".NET 8", "Angular 17", "Supabase", "Tailwind CSS"],
+      "repositorio_url": "https://github.com/utm/kiosko-digital",
+      "video_url": "https://youtu.be/kiosko-demo-001",
+      "demo_url": null,
+      "thumbnail_url": null,
+      "canvas_blocks": [
+        {
+          "id": "block-001",
+          "type": "heading",
+          "content": "Sistema de Punto de Venta para Kiosko Universitario",
+          "order": 1,
+          "metadata": {}
+        },
+        {
+          "id": "block-002",
+          "type": "text",
+          "content": "Solución integral para gestión de inventario, ventas y reportes del kiosko universitario. Incluye módulo de pagos con integración a pasarela y generación de tickets digitales.",
+          "order": 2,
+          "metadata": {}
+        }
+      ],
+      "created_at": "2026-02-15T14:30:00Z",
+      "updated_at": "2026-02-17T09:00:00Z",
+      "calificacion": 88,
+      "comentarios_docente": "Excelente implementación del sistema de ventas",
+      "es_publico": true
+    },
+    {
+      "id": "proj-002",
+      "titulo": "Sistema de Control de Inventario",
+      "materia": "Proyecto Integrador I",
+      "materia_id": "materia-proyecto-integrador",
+      "ciclo": "2026-1",
+      "grupo_id": "grupo-2026-dsm-a",
+      "lider_id": "user-student-002",
+      "miembros_ids": [],
+      "docente_id": "user-teacher-001",
+      "estado": "En Desarrollo",
+      "stack_tecnologico": [".NET 8", "React", "PostgreSQL", "Supabase Storage"],
+      "repositorio_url": "https://github.com/utm/kiosko-inventario",
+      "video_url": "https://youtu.be/kiosko-demo-002",
+      "demo_url": null,
+      "thumbnail_url": null,
+      "canvas_blocks": [],
+      "created_at": "2026-02-16T11:00:00Z",
+      "updated_at": "2026-02-17T09:00:00Z",
+      "calificacion": null,
+      "comentarios_docente": null,
+      "es_publico": false
+    }
+  ],
+  "evaluations": [
+    {
+      "id": "eval-001",
+      "project_id": "proj-001",
+      "docente_id": "user-teacher-001",
+      "docente_nombre": "Juan Pérez Gómez",
+      "tipo": "oficial",
+      "contenido": "Evaluación final del proyecto: La solución implementa correctamente los módulos de gestión de catálogo, proceso de venta con integración de pasarela de pago simulada, y generación de reportes. La presentación fue clara y demostró dominio técnico. Se sugiere mejorar la validación de inventario en tiempo real.",
+      "calificacion": 88,
+      "created_at": "2026-02-17T12:00:00Z",
+      "updated_at": "2026-02-17T12:00:00Z"
+    },
+    {
+      "id": "eval-002",
+      "project_id": "proj-001",
+      "docente_id": "user-teacher-002",
+      "docente_nombre": "María González Torres",
+      "tipo": "oficial",
+      "contenido": "Evaluación desde la perspectiva de Prácticas Profesionales: El proyecto demuestra aplicación práctica de conocimientos adquiridos. La arquitectura de bases de datos está bien diseñada y optimizada. Se recomienda documentar mejor los procedimientos almacenados y agregar índices adicionales para mejorar performance.",
+      "calificacion": 85,
+      "created_at": "2026-02-17T14:30:00Z",
+      "updated_at": "2026-02-17T14:30:00Z"
+    },
+    {
+      "id": "eval-003",
+      "project_id": "proj-001",
+      "docente_id": "user-teacher-003",
+      "docente_nombre": "Roberto Martínez López",
+      "tipo": "sugerencia",
+      "contenido": "Como observación desde el área de programación web, sugiero implementar mejores prácticas de SEO en el frontend, agregar metadatos apropiados y considerar la implementación de Progressive Web App (PWA) para mejorar la experiencia de usuario en dispositivos móviles.",
+      "calificacion": null,
+      "created_at": "2026-02-17T15:45:00Z",
+      "updated_at": "2026-02-17T15:45:00Z"
+    },
+    {
+      "id": "eval-004",
+      "project_id": "proj-002",
+      "docente_id": "user-teacher-001",
+      "docente_nombre": "Juan Pérez Gómez",
+      "tipo": "sugerencia",
+      "contenido": "Avance del proyecto: Se observa un buen progreso en la implementación del módulo de inventario. La interfaz de usuario es intuitiva y el código está bien estructurado. Para la siguiente entrega, enfocarse en completar la integración con el sistema de alertas automáticas y la funcionalidad de reportes.",
+      "calificacion": null,
+      "created_at": "2026-02-17T16:00:00Z",
+      "updated_at": "2026-02-17T16:00:00Z"
+    },
+    {
+      "id": "eval-005",
+      "project_id": "proj-002",
+      "docente_id": "user-teacher-002",
+      "docente_nombre": "María González Torres",
+      "tipo": "oficial",
+      "contenido": "Evaluación parcial - Avance del 70%: El manejo de transacciones en la base de datos está correctamente implementado. Se evidencia comprensión de conceptos ACID y normalización. Falta implementar la funcionalidad de respaldos automáticos y optimizar algunas consultas que pueden mejorar el rendimiento general del sistema.",
+      "calificacion": 78,
+      "created_at": "2026-02-17T17:30:00Z",
+      "updated_at": "2026-02-17T17:30:00Z"
+    }
+  ]
+}

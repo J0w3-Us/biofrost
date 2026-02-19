@@ -1,0 +1,31 @@
+# ── Credentials & secrets ────────────────────────────────────────────────────
+**/*firebase-adminsdk*.json
+documentar/credentials/
+IntegradorHub/integradorhub-dsm-firebase-adminsdk-fbsvc-d89dd8625c.json
+biofrost_aplication_movil/integradorhub-dsm-firebase-adminsdk-fbsvc-d89dd8625c.json
+*.env
+!*.env.example
+
+# ── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+dist/
+.cache/
+
+# ── .NET Backend ─────────────────────────────────────────────────────────────
+IntegradorHub/backend/**/bin/
+IntegradorHub/backend/**/obj/
+*.user
+*.suo
+.vs/
+
+# ── Flutter / Dart ───────────────────────────────────────────────────────────
+# (covered by biofrost_aplication_movil/.gitignore)
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDEs ─────────────────────────────────────────────────────────────────────
+.idea/
+*.code-workspace
+IntegradorHub/

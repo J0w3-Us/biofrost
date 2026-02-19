@@ -1,0 +1,117 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="900" fill="#1A1A1A" />
+  
+  <!-- Header -->
+  <text x="600" y="60" font-family="Arial, sans-serif" font-size="32" fill="#FFFFFF" text-anchor="middle" font-weight="bold">BIFROST PROJECT EVALUATION JOURNEY</text>
+  <text x="600" y="90" font-family="Arial, sans-serif" font-size="18" fill="#AAAAAA" text-anchor="middle">Step-by-Step Flow for Teachers & Judges</text>
+
+  <!-- Flow Path Line -->
+  <path d="M 150 200 L 1050 200 L 1050 500 L 150 500 L 150 800 L 1050 800" stroke="#333333" stroke-width="4" stroke-dasharray="10 10" fill="none" />
+
+  <!-- STEP 1: Scan QR (Trigger) -->
+  <g transform="translate(150, 200)">
+    <circle cx="0" cy="0" r="50" fill="#FF6B6B" stroke="#FFFFFF" stroke-width="3" />
+    <text x="0" y="10" font-family="Arial, sans-serif" font-size="30" fill="#FFFFFF" text-anchor="middle">📍</text>
+    <text x="0" y="70" font-family="Arial, sans-serif" font-size="16" fill="#FF6B6B" text-anchor="middle" font-weight="bold">1. SCAN QR / SELECT</text>
+    <text x="0" y="90" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Docente locates project</text>
+    <text x="0" y="105" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">at the fair or list.</text>
+  </g>
+
+  <!-- Arrow 1-2 -->
+  <path d="M 220 200 L 380 200" stroke="#FF6B6B" stroke-width="2" marker-end="url(#arrow-red)" />
+
+  <!-- STEP 2: Review Evidence -->
+  <g transform="translate(450, 200)">
+    <circle cx="0" cy="0" r="50" fill="#2D2D2D" stroke="#FF6B6B" stroke-width="3" />
+    <text x="0" y="10" font-family="Arial, sans-serif" font-size="30" fill="#FFFFFF" text-anchor="middle">👁️</text>
+    <text x="0" y="70" font-family="Arial, sans-serif" font-size="16" fill="#FF6B6B" text-anchor="middle" font-weight="bold">2. REVIEW EVIDENCE</text>
+    <text x="0" y="90" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Watch Video Pitch,</text>
+    <text x="0" y="105" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Read PDF, Check GitHub.</text>
+  </g>
+
+  <!-- Arrow 2-3 -->
+  <path d="M 520 200 L 680 200" stroke="#FF6B6B" stroke-width="2" marker-end="url(#arrow-red)" />
+
+  <!-- STEP 3: Criteria Scoring -->
+  <g transform="translate(750, 200)">
+    <circle cx="0" cy="0" r="50" fill="#2D2D2D" stroke="#FFD93D" stroke-width="3" />
+    <text x="0" y="10" font-family="Arial, sans-serif" font-size="30" fill="#FFFFFF" text-anchor="middle">🎚️</text>
+    <text x="0" y="70" font-family="Arial, sans-serif" font-size="16" fill="#FFD93D" text-anchor="middle" font-weight="bold">3. SCORE CRITERIA</text>
+    <text x="0" y="90" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Use Sliders (1-100) for:</text>
+    <text x="0" y="105" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Innovation, Tech, UX.</text>
+  </g>
+
+  <!-- Arrow 3-4 (Curve down) -->
+  <path d="M 820 200 Q 950 200 950 300 L 950 400 Q 950 500 880 500" stroke="#FFD93D" stroke-width="2" fill="none" marker-end="url(#arrow-yellow)" />
+
+  <!-- STEP 4: Smart Feedback -->
+  <g transform="translate(750, 500)">
+    <circle cx="0" cy="0" r="50" fill="#2D2D2D" stroke="#4D96FF" stroke-width="3" />
+    <text x="0" y="10" font-family="Arial, sans-serif" font-size="30" fill="#FFFFFF" text-anchor="middle">💬</text>
+    <text x="0" y="70" font-family="Arial, sans-serif" font-size="16" fill="#4D96FF" text-anchor="middle" font-weight="bold">4. SMART FEEDBACK</text>
+    <text x="0" y="90" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Select 'Strength' Tokens</text>
+    <text x="0" y="105" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">or Dictate Voice Note.</text>
+  </g>
+
+   <!-- Arrow 4-5 -->
+  <path d="M 680 500 L 520 500" stroke="#4D96FF" stroke-width="2" marker-end="url(#arrow-blue)" />
+
+  <!-- STEP 5: Final Review -->
+  <g transform="translate(450, 500)">
+    <circle cx="0" cy="0" r="50" fill="#2D2D2D" stroke="#4D96FF" stroke-width="3" />
+    <text x="0" y="10" font-family="Arial, sans-serif" font-size="30" fill="#FFFFFF" text-anchor="middle">⚖️</text>
+    <text x="0" y="70" font-family="Arial, sans-serif" font-size="16" fill="#4D96FF" text-anchor="middle" font-weight="bold">5. CALIBRATION</text>
+    <text x="0" y="90" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Comparing vs Average.</text>
+    <text x="0" y="105" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Adjust if necessary.</text>
+  </g>
+  
+  <!-- Arrow 5-6 -->
+  <path d="M 380 500 L 220 500" stroke="#4D96FF" stroke-width="2" marker-end="url(#arrow-blue)" />
+
+  <!-- STEP 6: Submit (Event) -->
+  <g transform="translate(150, 500)">
+    <circle cx="0" cy="0" r="50" fill="#2ECC71" stroke="#FFFFFF" stroke-width="3" />
+    <text x="0" y="10" font-family="Arial, sans-serif" font-size="30" fill="#FFFFFF" text-anchor="middle">🚀</text>
+    <text x="0" y="70" font-family="Arial, sans-serif" font-size="16" fill="#2ECC71" text-anchor="middle" font-weight="bold">6. SUBMIT (EVENT)</text>
+    <text x="0" y="90" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Triggers 'Evaluado' Event.</text>
+    <text x="0" y="105" font-family="Arial, sans-serif" font-size="12" fill="#CCCCCC" text-anchor="middle">Updates Read Model.</text>
+  </g>
+
+   <!-- Arrow 6-7 (Curve down) -->
+  <path d="M 150 570 Q 150 700 250 800 L 380 800" stroke="#2ECC71" stroke-width="2" fill="none" marker-end="url(#arrow-green)" />
+
+  <!-- STEP 7: Notification (Outcome) -->
+  <g transform="translate(450, 800)">
+    <rect x="-80" y="-40" width="160" height="80" rx="10" fill="#3D3D3D" stroke="#2ECC71" stroke-width="2" />
+    <text x="0" y="5" font-family="Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle">🔔 Student Notified</text>
+    <text x="0" y="25" font-family="Arial, sans-serif" font-size="12" fill="#AAAAAA" text-anchor="middle">"Tu proyecto fue evaluado"</text>
+  </g>
+
+  <!-- Arrow 7-8 -->
+  <path d="M 530 800 L 670 800" stroke="#2ECC71" stroke-width="2" marker-end="url(#arrow-green)" />
+
+  <!-- STEP 8: Leaderboard (Outcome) -->
+  <g transform="translate(750, 800)">
+    <rect x="-80" y="-40" width="160" height="80" rx="10" fill="#3D3D3D" stroke="#9B59B6" stroke-width="2" />
+    <text x="0" y="5" font-family="Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle">🏆 Ranking Updated</text>
+    <text x="0" y="25" font-family="Arial, sans-serif" font-size="12" fill="#AAAAAA" text-anchor="middle">Project moves up/down</text>
+  </g>
+
+  <!-- Definitions -->
+  <defs>
+    <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#FF6B6B" />
+    </marker>
+    <marker id="arrow-yellow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#FFD93D" />
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#4D96FF" />
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2ECC71" />
+    </marker>
+  </defs>
+
+</svg>
