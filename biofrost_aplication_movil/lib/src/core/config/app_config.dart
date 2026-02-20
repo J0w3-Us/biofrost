@@ -4,13 +4,18 @@
 ///   flutter run --dart-define=API_BASE_URL=http://192.168.1.x:5093
 ///
 /// Si no se provee, usa el valor por defecto (localhost de desarrollo).
+///
+/// IMPORTANTE:
+/// - Para emulador Android: usar http://10.0.2.2:5093
+/// - Para emulador iOS: usar http://127.0.0.1:5093
+/// - Para dispositivo físico: usar la IP del PC en la red WiFi (ej: http://192.168.1.216:5093)
 class AppConfig {
   AppConfig._();
 
   /// URL base del backend .NET
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:5093',
+    defaultValue: 'http://10.0.2.2:5093', // Default: emulador Android
   );
 
   /// Firebase project ID (informativo; la config real va en google-services.json)

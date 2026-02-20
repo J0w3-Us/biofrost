@@ -57,6 +57,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
           );
+        // Limpiar para no repetir el Snackbar en rebuilds posteriores.
+        ref.read(authProvider.notifier).clearError();
       }
       if (next.status == AuthStatus.authenticated && next.user != null) {
         final user = next.user!;

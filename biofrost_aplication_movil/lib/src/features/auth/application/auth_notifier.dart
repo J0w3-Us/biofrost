@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/core.dart';
 import '../data/models/commands/login_command.dart';
+import '../data/models/commands/register_command.dart';
 import '../data/repositories/auth_repository.dart';
 
 // ---------------------------------------------------------------------------
@@ -94,6 +95,50 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // 4. Persistir perfil completo
       final appUser = response.toAppUser();
+      await _session.saveUser(appUser);
+
+      state = AuthState(status: AuthStatus.authenticated, user: appUser);
+    } on AppException catch (e) {
+      state = AuthState(status: AuthStatus.error, errorMessage: e.userMessage);
+    } catch (_) {
+      state = const AuthState(
+        status: AuthStatus.error,
+        errorMessage: 'Error de conexión. Revisa tu red e intenta de nuevo.',
+      );
+    }
+  }
+
+  /// [Command] Register: Registra nuevo usuario → sync backend → persistir sesión.
+  ///
+  /// Implements RF-Auth-02 (Registro con datos extendidos por rol).
+  Future<void> register(RegisterCommand cmd) async {
+    state = state.copyWith(status: AuthStatus.loading, clearError: true);
+    try {
+      // 1. Llamar endpoint register del backend
+      final response = await _repo.register(cmd);
+
+      // 2. Verificar que el registro fue exitoso
+      if (!response.success) {
+        state = AuthState(
+          status: AuthStatus.error,
+          errorMessage: response.message.isNotEmpty
+              ? response.message
+              : 'Error en el registro. Intenta de nuevo.',
+        );
+        return;
+      }
+
+      // 3. Convertir respuesta a AppUser
+      final appUser = response.toAppUser();
+      if (appUser == null) {
+        state = const AuthState(
+          status: AuthStatus.error,
+          errorMessage: 'Error al procesar los datos del usuario registrado.',
+        );
+        return;
+      }
+
+      // 4. Persistir perfil completo
       await _session.saveUser(appUser);
 
       state = AuthState(status: AuthStatus.authenticated, user: appUser);

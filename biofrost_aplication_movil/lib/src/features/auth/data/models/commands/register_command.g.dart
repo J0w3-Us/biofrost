@@ -21,7 +21,9 @@ RegisterCommand _$RegisterCommandFromJson(Map<String, dynamic> json) =>
       organizacion: json['Organizacion'] as String?,
       asignaciones:
           (json['Asignaciones'] as List<dynamic>?)
-              ?.map((e) => e as String)
+              ?.map(
+                (e) => AsignacionDocente.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       gruposDocente:

@@ -1,5 +1,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import '../shared/asignacion_docente.dart';
+
 part 'register_command.g.dart';
 
 /// [Command] Payload para POST /api/auth/register.
@@ -66,15 +68,15 @@ class RegisterCommand {
   @JsonKey(name: 'Organizacion')
   final String? organizacion;
 
-  /// Asignaciones de materias (Docente). Vacío para otros roles.
+  /// Asignaciones completas de materias (Docente). Vacío para otros roles.
   @JsonKey(name: 'Asignaciones', defaultValue: [])
-  final List<String> asignaciones;
+  final List<AsignacionDocente> asignaciones;
 
-  /// Grupos asignados al docente.
+  /// Grupos asignados al docente (usado para construir asignaciones).
   @JsonKey(name: 'GruposDocente', defaultValue: [])
   final List<String> gruposDocente;
 
-  /// Carreras del docente.
+  /// Carreras del docente (usado para construir asignaciones).
   @JsonKey(name: 'CarrerasIds', defaultValue: [])
   final List<String> carrerasIds;
 

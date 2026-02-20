@@ -152,8 +152,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               ),
             ),
           );
+        // Limpiar para no repetir el Snackbar en rebuilds posteriores.
+        ref.read(registerProvider.notifier).clearMessages();
       }
       if (next.successMessage != null) {
+        ref.read(registerProvider.notifier).clearMessages();
         // Actualizar estado global de auth y navegar
         Navigator.of(context).pushReplacementNamed(GroupSelectorPage.routeName);
       }
