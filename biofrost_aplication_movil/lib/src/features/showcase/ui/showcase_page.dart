@@ -55,9 +55,10 @@ class _ShowcasePageState extends ConsumerState<ShowcasePage> {
           ),
 
           if (state.allStacks.isNotEmpty)
-            _StackFilterRow(
-              stacks: state.allStacks,
+            FilterChipsBar<String>(
+              items: state.allStacks,
               selected: state.selectedStack,
+              labelBuilder: (s) => s,
               onSelected: notifier.filterByStack,
             ),
 
@@ -97,71 +98,98 @@ class _ShowcaseAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      backgroundColor: AppColors.surface,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(
-          Icons.arrow_back_ios_new_rounded,
-          color: AppColors.textSecondary,
-          size: 18,
-        ),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      title: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
+    return PreferredSize(
+      preferredSize: preferredSize,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.warning.withValues(alpha: 0.18),
+              AppColors.surface,
+            ],
+          ),
+          border: Border(
+            bottom: BorderSide(
               color: AppColors.warning.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: const Icon(
-              Icons.star_rounded,
-              color: AppColors.warning,
-              size: 16,
             ),
           ),
-          const SizedBox(width: 10),
-          const Text(
-            'Galería de Proyectos',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: 18,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        if (isLoading)
-          const Padding(
-            padding: EdgeInsets.only(right: 14),
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.primary,
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.textSecondary,
+                  size: 18,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
               ),
-            ),
-          )
-        else
-          IconButton(
-            icon: const Icon(
-              Icons.refresh_rounded,
-              color: AppColors.textMuted,
-              size: 20,
-            ),
-            onPressed: onRefresh,
-            tooltip: 'Actualizar',
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.warning,
+                      AppColors.warning.withValues(alpha: 0.7),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.warning.withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Galería de Proyectos',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+              ),
+              const Spacer(),
+              if (isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(right: 14),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                )
+              else
+                IconButton(
+                  icon: const Icon(
+                    Icons.refresh_rounded,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
+                  onPressed: onRefresh,
+                  tooltip: 'Actualizar',
+                ),
+              const SizedBox(width: 4),
+            ],
           ),
-        const SizedBox(width: 4),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: AppColors.border),
+        ),
       ),
     );
   }
@@ -185,7 +213,12 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.surface,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.primary.withValues(alpha: 0.1)),
+        ),
+      ),
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.pagePadding,
         AppSpacing.sm,
@@ -198,98 +231,6 @@ class _SearchBar extends StatelessWidget {
         prefixIcon: Icons.search_rounded,
         enabled: enabled,
         onChanged: onChanged,
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Stack filter chips
-// ---------------------------------------------------------------------------
-
-class _StackFilterRow extends StatelessWidget {
-  const _StackFilterRow({
-    required this.stacks,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final List<String> stacks;
-  final String? selected;
-  final ValueChanged<String?> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.surface,
-      child: Column(
-        children: [
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.pagePadding,
-                vertical: 6,
-              ),
-              itemCount: stacks.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, i) {
-                if (i == 0) {
-                  return _FilterChip(
-                    label: 'Todas',
-                    isSelected: selected == null,
-                    onTap: () => onSelected(null),
-                  );
-                }
-                final stack = stacks[i - 1];
-                return _FilterChip(
-                  label: stack,
-                  isSelected: selected == stack,
-                  onTap: () => onSelected(selected == stack ? null : stack),
-                );
-              },
-            ),
-          ),
-          Container(height: 1, color: AppColors.border),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(AppRadius.full),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.caption.copyWith(
-            color: isSelected ? Colors.white : AppColors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
       ),
     );
   }
@@ -358,11 +299,9 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primary,
-          strokeWidth: 2.5,
-        ),
+      return const Padding(
+        padding: EdgeInsets.all(AppSpacing.pagePadding),
+        child: ShimmerCardList(count: 6),
       );
     }
 
@@ -398,13 +337,18 @@ class _Body extends ConsumerWidget {
       );
     }
 
-    return ListView.separated(
+    return GridView.builder(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.pagePadding,
         vertical: AppSpacing.md,
       ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: AppSpacing.md,
+        crossAxisSpacing: AppSpacing.sm,
+        childAspectRatio: 0.72,
+      ),
       itemCount: state.filteredProjects.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
       itemBuilder: (context, i) {
         final project = state.filteredProjects[i];
         return ProjectShowcaseCard(

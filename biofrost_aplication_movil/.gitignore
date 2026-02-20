@@ -1,3 +1,15 @@
+# Credentials, Secrets & Documentation
+**/*firebase-adminsdk*.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/*conexion*.json
+**/*key*.json
+*.env
+!*.env.example
+/docs/
+/AI/
+/documentar/
+
 # Miscellaneous
 *.class
 *.log

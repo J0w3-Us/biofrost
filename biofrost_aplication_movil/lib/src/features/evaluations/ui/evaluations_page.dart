@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../ui/ui_kit.dart';
 import '../../auth/application/auth_notifier.dart';
 import '../application/evaluations_notifier.dart';
+import '../data/models/evaluation_read_model.dart';
 import 'widgets/evaluation_card.dart';
 import 'widgets/evaluation_form.dart';
 
@@ -88,74 +89,93 @@ class _EvaluationsPageState extends ConsumerState<EvaluationsPage> {
     bool isLoading = false,
     VoidCallback? onRefresh,
   }) {
-    return AppBar(
-      backgroundColor: AppColors.surface,
-      elevation: 0,
-      surfaceTintColor: Colors.transparent,
-      titleSpacing: 0,
-      leading: IconButton(
-        icon: const Icon(
-          Icons.arrow_back_ios_rounded,
-          color: AppColors.textSecondary,
-          size: 20,
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight + 1),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.primary.withValues(alpha: 0.22),
+              AppColors.surface,
+            ],
+          ),
+          border: Border(
+            bottom: BorderSide(
+              color: AppColors.primary.withValues(alpha: 0.18),
+            ),
+          ),
         ),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      title: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: const Icon(
-              Icons.grade_rounded,
-              color: AppColors.error,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: 18,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        if (isLoading)
-          const Padding(
-            padding: EdgeInsets.only(right: 14),
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.primary,
+        child: SafeArea(
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios_rounded,
+                  color: AppColors.textSecondary,
+                  size: 20,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
               ),
-            ),
-          )
-        else if (onRefresh != null)
-          IconButton(
-            icon: const Icon(
-              Icons.refresh_rounded,
-              color: AppColors.textSecondary,
-              size: 22,
-            ),
-            onPressed: onRefresh,
-            tooltip: 'Actualizar',
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primary, AppColors.primaryVariant],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.grade_rounded,
+                  color: Colors.white,
+                  size: 17,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+              ),
+              const Spacer(),
+              if (isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(right: 14),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                )
+              else if (onRefresh != null)
+                IconButton(
+                  icon: const Icon(
+                    Icons.refresh_rounded,
+                    color: AppColors.textSecondary,
+                    size: 22,
+                  ),
+                  onPressed: onRefresh,
+                  tooltip: 'Actualizar',
+                ),
+            ],
           ),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(
-          height: 1,
-          color: AppColors.border.withValues(alpha: 0.4),
         ),
       ),
     );
@@ -163,8 +183,9 @@ class _EvaluationsPageState extends ConsumerState<EvaluationsPage> {
 
   Widget _buildBody(EvaluationsState state, dynamic user) {
     if (state.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      return const Padding(
+        padding: EdgeInsets.all(AppSpacing.pagePadding),
+        child: ShimmerCardList(count: 5),
       );
     }
 
@@ -172,31 +193,32 @@ class _EvaluationsPageState extends ConsumerState<EvaluationsPage> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.pagePadding),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.error_outline_rounded,
-                color: AppColors.error,
-                size: 48,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                state.errorMessage ?? 'Error al cargar evaluaciones.',
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.textSecondary,
+          child: GlassCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: AppColors.error,
+                  size: 48,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              BifrostButton(
-                label: 'Reintentar',
-                onPressed: () => ref
-                    .read(evaluationsProvider(widget.projectId).notifier)
-                    .refresh(),
-                variant: BifrostButtonVariant.secondary,
-              ),
-            ],
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  state.errorMessage ?? 'Error al cargar evaluaciones.',
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                GradientButton(
+                  label: 'Reintentar',
+                  onPressed: () => ref
+                      .read(evaluationsProvider(widget.projectId).notifier)
+                      .refresh(),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -213,7 +235,7 @@ class _EvaluationsPageState extends ConsumerState<EvaluationsPage> {
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.pagePadding,
               ),
-              child: _PromedioCard(promedio: state.promedioOficial!),
+              child: _ScoreHeaderCard(promedio: state.promedioOficial!),
             ),
           ),
 
@@ -265,13 +287,13 @@ class _EvaluationsPageState extends ConsumerState<EvaluationsPage> {
               horizontal: AppSpacing.pagePadding,
             ),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate((ctx, i) {
-                final evaluation = state.evaluations[i];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: EvaluationCard(evaluation: evaluation),
-                );
-              }, childCount: state.evaluations.length),
+              delegate: SliverChildBuilderDelegate(
+                (ctx, i) => _TimelineItem(
+                  evaluation: state.evaluations[i],
+                  isLast: i == state.evaluations.length - 1,
+                ),
+                childCount: state.evaluations.length,
+              ),
             ),
           ),
         ],
@@ -284,12 +306,29 @@ class _EvaluationsPageState extends ConsumerState<EvaluationsPage> {
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.pagePadding,
               ),
-              child: Text(
-                'Nueva evaluación',
-                style: AppTextStyles.labelLarge.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryVariant],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Nueva evaluación',
+                    style: AppTextStyles.labelLarge.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -313,44 +352,22 @@ class _EvaluationsPageState extends ConsumerState<EvaluationsPage> {
 }
 
 // ---------------------------------------------------------------------------
-// Card de promedio
+// Score header card (GlassCard + ScoreRing)
 // ---------------------------------------------------------------------------
 
-class _PromedioCard extends StatelessWidget {
-  const _PromedioCard({required this.promedio});
+class _ScoreHeaderCard extends StatelessWidget {
+  const _ScoreHeaderCard({required this.promedio});
 
   final double promedio;
 
-  Color get _color {
-    if (promedio >= 80) return AppColors.success;
-    if (promedio >= 60) return AppColors.warning;
-    return AppColors.error;
-  }
-
   @override
   Widget build(BuildContext context) {
-    return BifrostCard(
+    return GlassCard(
       padding: const EdgeInsets.all(AppSpacing.md),
+      glowColor: AppColors.primary,
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: _color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: Center(
-              child: Text(
-                promedio.toStringAsFixed(1),
-                style: AppTextStyles.heading2.copyWith(
-                  color: _color,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-          ),
+          ScoreRing(score: promedio, size: 72),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -360,11 +377,12 @@ class _PromedioCard extends StatelessWidget {
                   'Calificación promedio',
                   style: AppTextStyles.labelLarge.copyWith(
                     color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  'Basado en evaluaciones oficiales',
+                  'Evaluaciones oficiales de docentes',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textMuted,
                   ),
@@ -374,6 +392,77 @@ class _PromedioCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Timeline item
+// ---------------------------------------------------------------------------
+
+class _TimelineItem extends StatelessWidget {
+  const _TimelineItem({required this.evaluation, required this.isLast});
+
+  final EvaluationReadModel evaluation;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left: dot + connector line
+        SizedBox(
+          width: 28,
+          child: Column(
+            children: [
+              const SizedBox(height: 14),
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: evaluation.isOficial
+                      ? AppColors.primary
+                      : AppColors.textMuted,
+                  shape: BoxShape.circle,
+                  boxShadow: evaluation.isOficial
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.5),
+                            blurRadius: 6,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+              if (!isLast)
+                Container(
+                  width: 2,
+                  height: 56,
+                  margin: const EdgeInsets.only(top: 4),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.3),
+                        AppColors.border.withValues(alpha: 0.15),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        // Right: card
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: EvaluationCard(evaluation: evaluation),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -390,39 +479,47 @@ class _EmptyProjectState extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.pagePadding),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppRadius.xl),
+        child: GlassCard(
+          glowColor: AppColors.primary,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.25),
+                      AppColors.primaryVariant.withValues(alpha: 0.15),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.grade_outlined,
+                  color: AppColors.primary,
+                  size: 32,
+                ),
               ),
-              child: const Icon(
-                Icons.grade_outlined,
-                color: AppColors.error,
-                size: 32,
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Sin proyecto seleccionado',
+                style: AppTextStyles.heading3.copyWith(
+                  color: AppColors.textPrimary,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Sin proyecto seleccionado',
-              style: AppTextStyles.heading3.copyWith(
-                color: AppColors.textPrimary,
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Accede a las evaluaciones desde la página detalle de un proyecto.',
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Accede a las evaluaciones desde la página detalle de un proyecto.',
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

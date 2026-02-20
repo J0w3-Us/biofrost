@@ -46,8 +46,21 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.primary.withValues(alpha: 0.20),
+                AppColors.surface,
+              ],
+            ),
+          ),
+        ),
         title: const Text(
           'Proyectos',
           style: TextStyle(
@@ -60,7 +73,10 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage>
           preferredSize: const Size.fromHeight(49),
           child: Column(
             children: [
-              Container(height: 1, color: AppColors.border),
+              Container(
+                height: 1,
+                color: AppColors.primary.withValues(alpha: 0.15),
+              ),
               TabBar(
                 controller: _tabController,
                 indicatorColor: AppColors.primary,
@@ -113,9 +129,7 @@ class _MyProjectTab extends ConsumerWidget {
     final state = ref.watch(myProjectProvider(userId));
 
     if (state.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
+      return const ShimmerCardList(count: 3);
     }
 
     if (state.hasError) {
@@ -186,9 +200,7 @@ class _GroupProjectsTab extends ConsumerWidget {
     final state = ref.watch(projectsListProvider(groupId));
 
     if (state.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
+      return const ShimmerCardList(count: 4);
     }
 
     if (state.hasError) {

@@ -1,8 +1,12 @@
 # ── Credentials & secrets ────────────────────────────────────────────────────
 **/*firebase-adminsdk*.json
-documentar/credentials/
-IntegradorHub/integradorhub-dsm-firebase-adminsdk-fbsvc-d89dd8625c.json
-biofrost_aplication_movil/integradorhub-dsm-firebase-adminsdk-fbsvc-d89dd8625c.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/documentar/
+**/AI/
+**/docs/
+**/*conexion*.json
+**/*key*.json
 *.env
 !*.env.example
 
