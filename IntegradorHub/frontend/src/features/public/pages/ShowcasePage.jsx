@@ -1,0 +1,170 @@
+import { useState, useEffect } from 'react';
+import { Search, Filter, Rocket } from 'lucide-react';
+import api from '../../../lib/axios';
+
+// Import Shared Component
+// Import Shared Component
+import { ShowcaseCard } from '../components/ShowcaseCard';
+import { ProjectDetailsModal } from '../../projects/components/ProjectDetailsModal';
+
+export function ShowcasePage() {
+    const [projects, setProjects] = useState([]);
+    const [filteredProjects, setFilteredProjects] = useState([]);
+    const [selectedProject, setSelectedProject] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedStack, setSelectedStack] = useState(null);
+    const [allStacks, setAllStacks] = useState([]);
+
+    useEffect(() => {
+        fetchPublicProjects();
+    }, []);
+
+    useEffect(() => {
+        filterProjects();
+    }, [searchTerm, selectedStack, projects]);
+
+    const fetchPublicProjects = async () => {
+        try {
+            const response = await api.get('/api/projects/public');
+            setProjects(response.data);
+
+            // Extract unique stacks
+            const stacks = new Set();
+            response.data.forEach(p => {
+                p.stackTecnologico?.forEach(tech => stacks.add(tech));
+            });
+            setAllStacks(Array.from(stacks).sort());
+        } catch (error) {
+            console.error('Error fetching public projects:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filterProjects = () => {
+        let filtered = projects;
+
+        if (searchTerm) {
+            filtered = filtered.filter(p =>
+                p.titulo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.materia?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        if (selectedStack) {
+            filtered = filtered.filter(p =>
+                p.stackTecnologico?.includes(selectedStack)
+            );
+        }
+
+        setFilteredProjects(filtered);
+    };
+
+    return (
+        <div className="min-h-screen bg-white font-sans text-gray-900">
+            {/* Header / Hero */}
+            <header className="border-b border-gray-100 bg-white sticky top-0 z-10 backdrop-blur-md bg-white/90">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                        <div>
+                            <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-gray-900 mb-3">
+                                Galería de Proyectos
+                            </h1>
+                            <p className="text-gray-500 text-lg max-w-xl">
+                                Explora el talento y la innovación de nuestros estudiantes.
+                            </p>
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="w-full md:w-96 relative group">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={20} />
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Buscar proyecto..."
+                                className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all font-medium placeholder-gray-400"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+                {/* Filters */}
+                <div className="mb-10 overflow-x-auto pb-4 scrollbar-hide">
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 pr-4 border-r border-gray-100 mr-2">
+                            <Filter size={18} className="text-gray-400" />
+                            <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">Tecnologías</span>
+                        </div>
+                        <button
+                            onClick={() => setSelectedStack(null)}
+                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap border ${selectedStack === null
+                                ? 'bg-gray-900 text-white border-gray-900'
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                                }`}
+                        >
+                            Todas
+                        </button>
+                        {allStacks.map(stack => (
+                            <button
+                                key={stack}
+                                onClick={() => setSelectedStack(stack)}
+                                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap border ${selectedStack === stack
+                                    ? 'bg-gray-900 text-white border-gray-900'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                                    }`}
+                            >
+                                {stack}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Grid */}
+                {loading ? (
+                    <div className="space-y-8 animate-pulse">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="bg-gray-100 rounded-3xl h-[400px]"></div>
+                        ))}
+                    </div>
+                ) : filteredProjects.length > 0 ? (
+                    <div className="space-y-8 max-w-5xl mx-auto">
+                        {filteredProjects.map(project => (
+                            <ShowcaseCard
+                                key={project.id}
+                                project={project}
+                                onClick={() => setSelectedProject(project)}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-gray-400">
+                            <Search size={24} />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">Sin resultados</h3>
+                        <p className="text-gray-500">No encontramos proyectos con esos filtros.</p>
+                    </div>
+                )}
+
+                {/* Details Modal */}
+                {selectedProject && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                        <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden h-[85vh] flex flex-col">
+                            <ProjectDetailsModal
+                                project={selectedProject}
+                                onClose={() => setSelectedProject(null)}
+                                onUpdate={fetchPublicProjects}
+                            />
+                        </div>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+}
