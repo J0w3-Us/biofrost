@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Ignore local Firebase config and secrets
+/android/app/google-services.json
+assets/env/
+*.key.json

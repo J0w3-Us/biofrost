@@ -67,3 +67,21 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Sensitive / secret files
+# Firebase and Google service credentials
+**/google-services.json
+**/GoogleService-Info.plist
+IntegradorHub/*.json
+*.gcloud.json
+
+# Local env files and secret configs
+.env.local
+.env.*.local
+
+# Service account keys
+*.key.json
+*-private-key.json
+
+# Ignore any credentials accidentally placed in assets/env
+assets/env/
