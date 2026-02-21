@@ -63,7 +63,7 @@ public class UpdateProjectHandler : IRequestHandler<UpdateProjectCommand, Update
         {
             if (block.Metadata != null && block.Metadata.Count > 0)
             {
-                var newMetadata = new Dictionary<string, object>();
+                var newMetadata = new Dictionary<string, object?>();
                 foreach (var kvp in block.Metadata)
                 {
                     if (kvp.Value is JsonElement element)

@@ -33,15 +33,6 @@ builder.Services.AddScoped<ICarreraRepository, CarreraRepository>();
 // Storage Service (Supabase)
 builder.Services.AddSingleton<IStorageService, SupabaseStorageService>();
 
-// HTTP Request Logging
-builder.Services.AddHttpLogging(logging =>
-{
-    logging.LoggingFields = Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.RequestMethod
-        | Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.RequestPath
-        | Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.ResponseStatusCode
-        | Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.Duration;
-});
-
 // CORS (para React Frontend)
 builder.Services.AddCors(options =>
 {
@@ -64,7 +55,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpLogging();
 app.UseCors("AllowFrontend");
 app.UseAuthorization();
 app.MapControllers();

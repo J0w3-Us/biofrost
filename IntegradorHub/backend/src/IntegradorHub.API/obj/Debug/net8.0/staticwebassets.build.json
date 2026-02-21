@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "XO9A9StSZHMWTtZYDuwExw1VShS2FVbhKqrVq4glV3Y=",
+  "Source": "IntegradorHub.API",
+  "BasePath": "_content/IntegradorHub.API",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

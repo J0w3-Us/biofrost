@@ -59,7 +59,10 @@ public class GetProjectDetailsHandler : IRequestHandler<GetProjectDetailsQuery, 
             project.CanvasBlocks,
             members,
             project.CreatedAt.ToDateTime(),
-            project.EsPublico
+            project.EsPublico,
+            project.PuntosTotales,
+            project.ConteoVotos,
+            project.Votantes ?? new Dictionary<string, int>()
         );
     }
 }
@@ -80,7 +83,10 @@ public record ProjectDetailsDto(
     List<CanvasBlock> Canvas,
     List<MemberDto> Members,
     DateTime CreatedAt,
-    bool EsPublico
+    bool EsPublico,
+    double PuntosTotales,
+    int ConteoVotos,
+    Dictionary<string, int> Votantes
 );
 
 public record MemberDto(string Id, string Nombre, string Email, string? FotoUrl, string Rol);

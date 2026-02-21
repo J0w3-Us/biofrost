@@ -11,12 +11,18 @@ export function ShowcaseCard({ project, onClick }) {
     const navigate = useNavigate();
 
     // Voting State
+    // Voting State
     const [hoverRating, setHoverRating] = useState(0);
-    const [userRating, setUserRating] = useState(0); // 0 means not voted yet in this session
+    const [userRating, setUserRating] = useState(() => {
+        // Init rating from the server payload if user already voted
+        if (userData && userData.userId && project.votantes && project.votantes[userData.userId]) {
+            return project.votantes[userData.userId];
+        }
+        return 0;
+    });
     const [isVoting, setIsVoting] = useState(false);
 
-    // 1. Determine Owner
-    const isOwner = userData?.id === project.liderId;
+    const isOwner = userData?.userId === project.liderId;
 
     // 2. Gather Media Items (Video + Thumbnail + Canvas Images)
     const mediaItems = [];
@@ -69,7 +75,7 @@ export function ShowcaseCard({ project, onClick }) {
         setIsVoting(true);
         try {
             await api.post(`/api/projects/${project.id}/rate`, {
-                userId: userData.id,
+                userId: userData.userId,
                 stars: stars
             });
             setUserRating(stars);
@@ -270,8 +276,8 @@ export function ShowcaseCard({ project, onClick }) {
                                             onClick={(e) => handleRate(e, star)}
                                             disabled={isVoting}
                                             className={`p-0.5 transition-colors ${(hoverRating || userRating) >= star
-                                                    ? 'text-yellow-400'
-                                                    : 'text-gray-300 hover:text-yellow-200'
+                                                ? 'text-yellow-400'
+                                                : 'text-gray-300 hover:text-yellow-200'
                                                 }`}
                                         >
                                             <Star size={14} fill={(hoverRating || userRating) >= star ? "currentColor" : "none"} />

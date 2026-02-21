@@ -1,0 +1,553 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:biofrost/core/models/evaluation_read_model.dart';
+import 'package:biofrost/core/router/app_router.dart';
+import 'package:biofrost/core/theme/app_theme.dart';
+import 'package:biofrost/core/widgets/ui_kit.dart';
+import 'package:biofrost/features/auth/providers/auth_provider.dart';
+import 'package:biofrost/features/evaluations/providers/evaluation_provider.dart';
+
+/// Pantalla de perfil del Docente.
+///
+/// Solo accesible con [AuthStateAuthenticated] y rol Docente.
+/// Muestra: datos personales, asignaciones y botón de logout.
+class ProfilePage extends ConsumerWidget {
+  const ProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppTheme.surface0,
+      appBar: AppBar(
+        title: const Text('Perfil'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          onPressed: () => context.go(AppRoutes.showcase),
+        ),
+        actions: [
+          // Botón de cerrar sesión
+          TextButton(
+            onPressed: () => _confirmLogout(context, ref),
+            child: const Text(
+              'Salir',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.error,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppTheme.sp8),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppTheme.sp16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header de perfil ─────────────────────────────────────
+            _ProfileHeader(
+              name: user.nombreCompleto,
+              email: user.email,
+              avatarUrl: user.avatarUrl,
+              rol: user.rol,
+            ),
+
+            const SizedBox(height: AppTheme.sp24),
+            const BioDivider(),
+            const SizedBox(height: AppTheme.sp24),
+
+            // ── Datos académicos ──────────────────────────────────────
+            if (user.isDocente) ...[
+              const _SectionTitle('Información profesional'),
+              const SizedBox(height: AppTheme.sp12),
+
+              if (user.cedula != null)
+                _InfoRow(
+                  icon: Icons.badge_outlined,
+                  label: 'Cédula',
+                  value: user.cedula!,
+                ),
+              if (user.especialidadDocente != null)
+                _InfoRow(
+                  icon: Icons.school_outlined,
+                  label: 'Especialidad',
+                  value: user.especialidadDocente!,
+                ),
+              if (user.profesion != null)
+                _InfoRow(
+                  icon: Icons.work_outline_rounded,
+                  label: 'Profesión',
+                  value: user.profesion!,
+                ),
+
+              const SizedBox(height: AppTheme.sp24),
+
+              // Grupos asignados (si los hay)
+              if (user.asignaciones != null &&
+                  user.asignaciones!.isNotEmpty) ...[
+                _SectionTitle('Asignaciones (${user.asignaciones!.length})'),
+                const SizedBox(height: AppTheme.sp12),
+                ...user.asignaciones!.map(
+                  (a) => _AssignmentTile(assignment: a),
+                ),
+              ],
+
+              const SizedBox(height: AppTheme.sp24),
+              // ── Historial de evaluaciones ──────────────────────────
+              const BioDivider(),
+              const SizedBox(height: AppTheme.sp24),
+              const _SectionTitle('Historial de evaluaciones'),
+              const SizedBox(height: AppTheme.sp12),
+              _EvaluationHistory(docenteId: user.userId),
+            ],
+
+            // ── Visitante ─────────────────────────────────────────────
+            if (user.isVisitante && user.organizacion != null) ...[
+              const _SectionTitle('Información de visita'),
+              const SizedBox(height: AppTheme.sp12),
+              _InfoRow(
+                icon: Icons.business_outlined,
+                label: 'Organización',
+                value: user.organizacion!,
+              ),
+            ],
+
+            const SizedBox(height: AppTheme.sp32),
+
+            // ── Botón de logout ───────────────────────────────────────
+            BioButton(
+              label: 'Cerrar sesión',
+              onTap: () => _confirmLogout(context, ref),
+              variant: BioButtonVariant.secondary,
+              icon: Icons.logout_rounded,
+            ),
+
+            const SizedBox(height: AppTheme.sp24),
+
+            // ── Versión de la app ─────────────────────────────────────
+            const Center(
+              child: Text(
+                'Biofrost v1.0.0 • IntegradorHub Platform',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 10,
+                  color: AppTheme.textDisabled,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmLogout(BuildContext context, WidgetRef ref) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface1,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppTheme.bLG,
+          side: const BorderSide(color: AppTheme.border),
+        ),
+        title: const Text(
+          '¿Cerrar sesión?',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        content: const Text(
+          'Necesitarás ingresar tus credenciales nuevamente.',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            color: AppTheme.textSecondary,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) context.go(AppRoutes.login);
+            },
+            child: const Text(
+              'Cerrar sesión',
+              style: TextStyle(
+                color: AppTheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Sub-widgets ───────────────────────────────────────────────────────────
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.name,
+    required this.email,
+    required this.avatarUrl,
+    required this.rol,
+  });
+
+  final String name;
+  final String email;
+  final String avatarUrl;
+  final String rol;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Avatar grande
+        BioAvatar(url: avatarUrl, size: 72, showBorder: true),
+        const SizedBox(width: AppTheme.sp16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: AppTheme.sp4),
+              Text(
+                email,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppTheme.sp8),
+              _RoleBadge(rol),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge(this.rol);
+  final String rol;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.surface2,
+        borderRadius: AppTheme.bFull,
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Text(
+        rol.toUpperCase(),
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.textSecondary,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title);
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.textDisabled,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.sp12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: AppTheme.textDisabled),
+          const SizedBox(width: AppTheme.sp12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    color: AppTheme.textDisabled,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AssignmentTile extends StatelessWidget {
+  const _AssignmentTile({required this.assignment});
+  final Map<String, dynamic> assignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final carreraId = assignment['carreraId'] as String? ?? '—';
+    final materiaId = assignment['materiaId'] as String? ?? '—';
+    final grupos = assignment['gruposIds'] as List? ?? [];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.sp8),
+      padding: const EdgeInsets.all(AppTheme.sp12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface1,
+        borderRadius: AppTheme.bMD,
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Carrera: $carreraId',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          Text(
+            'Materia: $materiaId',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          if (grupos.isNotEmpty) ...[
+            const SizedBox(height: AppTheme.sp6),
+            Wrap(
+              spacing: AppTheme.sp6,
+              runSpacing: AppTheme.sp4,
+              children:
+                  grupos.map((g) => BioChip(label: g.toString())).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Historial de evaluaciones del docente ─────────────────────────────────
+
+class _EvaluationHistory extends ConsumerWidget {
+  const _EvaluationHistory({required this.docenteId});
+  final String docenteId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(docenteEvaluationHistoryProvider(docenteId));
+
+    return async.when(
+      loading: () => Column(
+        children: List.generate(
+          3,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: AppTheme.sp8),
+            child: BioSkeleton(
+              width: double.infinity,
+              height: 72,
+              borderRadius: AppTheme.bMD,
+            ),
+          ),
+        ),
+      ),
+      error: (_, __) => const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppTheme.sp12),
+        child: Text(
+          'No se pudo cargar el historial.',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            color: AppTheme.textDisabled,
+          ),
+        ),
+      ),
+      data: (evaluations) {
+        if (evaluations.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppTheme.sp12),
+            child: Text(
+              'Aún no has emitido ninguna evaluación.',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: AppTheme.textDisabled,
+              ),
+            ),
+          );
+        }
+        return Column(
+          children: evaluations
+              .take(10)
+              .map((e) => _EvalHistoryTile(evaluation: e))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _EvalHistoryTile extends StatelessWidget {
+  const _EvalHistoryTile({required this.evaluation});
+  final EvaluationReadModel evaluation;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOficial = evaluation.isOficial;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.sp8),
+      padding: const EdgeInsets.all(AppTheme.sp12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface1,
+        borderRadius: AppTheme.bMD,
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: tipo + calificación + fecha
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isOficial ? AppTheme.badgeBlue : AppTheme.surface2,
+                  borderRadius: AppTheme.bFull,
+                ),
+                child: Text(
+                  isOficial ? 'OFICIAL' : 'SUGERENCIA',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: isOficial
+                        ? AppTheme.badgeBlueText
+                        : AppTheme.textDisabled,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              if (evaluation.hasGrade) ...[
+                const SizedBox(width: AppTheme.sp8),
+                Text(
+                  '${evaluation.calificacionDisplay}/100',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.warning,
+                  ),
+                ),
+              ],
+              const Spacer(),
+              Text(
+                evaluation.fechaFormateada,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 10,
+                  color: AppTheme.textDisabled,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.sp6),
+          // Contenido truncado
+          Text(
+            evaluation.contenido,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              color: AppTheme.textSecondary,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

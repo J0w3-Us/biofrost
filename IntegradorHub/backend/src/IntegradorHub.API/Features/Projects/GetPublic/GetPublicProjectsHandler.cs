@@ -54,7 +54,8 @@ public class GetPublicProjectsHandler : IRequestHandler<GetPublicProjectsQuery, 
                 project.Calificacion,
                 project.LiderId,
                 project.PuntosTotales,
-                project.ConteoVotos
+                project.ConteoVotos,
+                project.Votantes ?? new Dictionary<string, int>()
             ));
         }
 
@@ -82,5 +83,6 @@ public record PublicProjectDto(
     double? Calificacion,
     string LiderId,
     double PuntosTotales,
-    int ConteoVotos
+    int ConteoVotos,
+    Dictionary<string, int> Votantes
 );

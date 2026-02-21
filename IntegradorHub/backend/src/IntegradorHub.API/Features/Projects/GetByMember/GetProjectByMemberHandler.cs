@@ -66,7 +66,10 @@ public class GetProjectByMemberHandler : IRequestHandler<GetProjectByMemberQuery
             project.CanvasBlocks,
             members,
             project.CreatedAt.ToDateTime(),
-            project.EsPublico
+            project.EsPublico,
+            project.PuntosTotales,
+            project.ConteoVotos,
+            project.Votantes ?? new Dictionary<string, int>()
         );
     }
 }
