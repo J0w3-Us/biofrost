@@ -186,9 +186,11 @@ class _FeedbackSectionState extends ConsumerState<FeedbackSection> {
 
         const SizedBox(height: AppTheme.sp24),
 
-        // ── Feed de comentarios ───────────────────────────────────
+        // ── Feed ──────────────────────────────────────────────────
+        // 1. Cargando comentarios → skeleton
         if (commentsState.isLoading)
           const _CommentsSkeleton()
+        // 2. Error en comentarios → banner con retry
         else if (commentsState.hasError)
           BioErrorView(
             message: 'Error al cargar comentarios.',
@@ -196,26 +198,24 @@ class _FeedbackSectionState extends ConsumerState<FeedbackSection> {
                 .read(commentsProvider(widget.projectId).notifier)
                 .reload(widget.projectId),
           )
-        else if (commentsState.isEmpty && !isDocente)
-          const _EmptyFeed()
-        else if (commentsState.comments.isNotEmpty)
-          ...commentsState.comments.map((c) => _CommentBubble(comment: c)),
+        else ...[
+          // 3. Comentarios disponibles
+          if (commentsState.comments.isNotEmpty)
+            ...commentsState.comments
+                .map((c) => _CommentBubble(comment: c)),
 
-        // ── Feed de evaluaciones (Docentes) ───────────────────────
-        if (isDocente) ...[
-          if (evalState.isLoading)
-            const _EvalSkeleton()
-          else if (evalState.hasError)
-            BioErrorView(
-              message:
-                  evalState.error?.message ?? 'Error al cargar evaluaciones.',
-              onRetry: () => ref
-                  .read(evaluationPanelProvider(widget.projectId).notifier)
-                  .load(widget.projectId, forceRefresh: true),
-            )
-          else ...[
-            if (nonOfficialEvals.isEmpty && commentsState.isEmpty)
-              const _EmptyFeed()
+          // 4. Evaluaciones/sugerencias (solo Docentes)
+          if (isDocente) ...[
+            if (evalState.isLoading)
+              const _EvalSkeleton()
+            else if (evalState.hasError)
+              BioErrorView(
+                message:
+                    evalState.error?.message ?? 'Error al cargar evaluaciones.',
+                onRetry: () => ref
+                    .read(evaluationPanelProvider(widget.projectId).notifier)
+                    .load(widget.projectId, forceRefresh: true),
+              )
             else
               ...nonOfficialEvals.map(
                 (e) => _EvalEntryCard(
@@ -225,6 +225,14 @@ class _FeedbackSectionState extends ConsumerState<FeedbackSection> {
                 ),
               ),
           ],
+
+          // 5. Sin contenido → un solo mensaje vacío
+          if (commentsState.comments.isEmpty &&
+              (!isDocente ||
+                  (!evalState.isLoading &&
+                      !evalState.hasError &&
+                      nonOfficialEvals.isEmpty)))
+            const _EmptyFeed(),
         ],
       ],
     );
