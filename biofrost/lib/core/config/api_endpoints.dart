@@ -55,6 +55,24 @@ class ApiEndpoints {
   static String teamStudents(String groupId) =>
       '/teams/available-students?groupId=$groupId';
 
+  // ── Ratings (Vote) ─────────────────────────────────────────────────
+
+  /// POST /api/projects/{id}/rate
+  /// Body: { userId, stars }
+  /// Implementa el sistema de votación con mapa Votantes del backend.
+  static String rateProject(String projectId) => '/projects/$projectId/rate';
+
+  // ── Users / Profile ────────────────────────────────────────────────
+
+  /// PUT /api/users/{uid}/photo
+  /// Body: { photoUrl }
+  /// Persiste el campo FotoUrl en Firestore.
+  static String updateUserPhoto(String uid) => '/users/$uid/photo';
+
+  // ── Comments (Supabase) ───────────────────────────────────────────
+  // Los comentarios de comunidad se almacenan en Supabase (tabla comments).
+  // No pasan por el backend .NET.
+
   // ── Admin ──────────────────────────────────────────────────────────
 
   /// GET /api/admin/groups
@@ -63,4 +81,7 @@ class ApiEndpoints {
   /// GET /api/admin/materias/available?carreraId={id}
   static String availableMaterias(String carreraId) =>
       '/admin/materias/available?carreraId=$carreraId';
+
+  /// GET /api/admin/carreras
+  static const String adminCarreras = '/admin/carreras';
 }

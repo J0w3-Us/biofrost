@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +28,13 @@ class ShowcasePage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.surface0,
+      floatingActionButton: kDebugMode
+          ? FloatingActionButton.extended(
+              onPressed: () => context.go(AppRoutes.testLogin),
+              label: const Text('Test Login'),
+              icon: const Icon(Icons.login_rounded),
+            )
+          : null,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           _buildAppBar(context, ref, isDocente, innerBoxIsScrolled),
@@ -343,15 +351,23 @@ class ProjectCard extends StatelessWidget {
           if (project.liderNombre != null)
             Row(
               children: [
-                const Icon(Icons.person_outline_rounded,
-                    size: 13, color: AppTheme.textDisabled),
-                const SizedBox(width: AppTheme.sp4),
-                Text(
-                  project.liderNombre!,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
+                UserAvatar(
+                  name: project.liderNombre!,
+                  imageUrl: project.liderFotoUrl,
+                  size: 20,
+                  showBorder: true,
+                ),
+                const SizedBox(width: AppTheme.sp6),
+                Expanded(
+                  child: Text(
+                    project.liderNombre!,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -128,6 +130,24 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> logout() async {
     await _authService.signOut();
     state = AuthStateUnauthenticated();
+  }
+
+  /// Actualiza la foto de perfil del usuario autenticado.
+  ///
+  /// 1. Sube la imagen a Firebase Storage.
+  /// 2. Persiste la URL en Firestore vía el backend.
+  /// 3. Refresca el estado del usuario para reflejar el nuevo fotoUrl.
+  Future<String> updateProfilePhoto(File imageFile) async {
+    final currentUser = ref.read(firebaseAuthProvider).currentUser;
+    if (currentUser == null) throw const AuthException();
+
+    final newUrl = await _authService.updateProfilePhoto(
+      uid: currentUser.uid,
+      imageFile: imageFile,
+    );
+    // Refrescar datos del usuario para propagar el nuevo fotoUrl a la UI
+    await refreshUser();
+    return newUrl;
   }
 
   /// Refresca los datos del usuario desde el backend.

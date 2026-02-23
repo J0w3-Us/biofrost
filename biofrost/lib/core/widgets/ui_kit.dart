@@ -3,7 +3,8 @@
 /// Todos siguen el sistema de diseño de [AppTheme]:
 /// - [BioButton]   → Botón primario / secundario
 /// - [BioInput]    → Campo de texto
-/// - [BioAvatar]   → Avatar de usuario
+/// - [BioAvatar]   → Avatar de usuario (URL directa)
+/// - [UserAvatar]  → Avatar inteligente: foto real o fallback de iniciales
 /// - [BioChip]     → Chip de tecnología o estado
 /// - [BioCard]     → Contenedor tarjeta
 /// - [BioSkeleton] → Placeholder de carga
@@ -12,6 +13,7 @@
 /// - [BioEmptyView]→ Vista de lista vacía
 library ui_kit;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 
@@ -233,6 +235,133 @@ class BioAvatar extends StatelessWidget {
             color: AppTheme.surface2,
             child: const Icon(Icons.person, color: AppTheme.textDisabled),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── UserAvatar ───────────────────────────────────────────────────────────
+
+/// Avatar inteligente y universal.
+///
+/// Equivalente al componente `UserAvatar.jsx` de IntegradorHub.
+/// - Si [imageUrl] es válida → muestra la foto con [CachedNetworkImage].
+/// - Si la URL es nula o se rompe → genera un círculo con las iniciales del [name].
+///
+/// Implementa el fix documentado en docs/Historial_De_Avances_Completados.md
+/// § Funcionalidad de Foto de Perfil: avatares correctos sin deformación.
+class UserAvatar extends StatelessWidget {
+  const UserAvatar({
+    super.key,
+    required this.name,
+    this.imageUrl,
+    this.size = 40,
+    this.showBorder = false,
+  });
+
+  final String name;
+  final String? imageUrl;
+  final double size;
+  final bool showBorder;
+
+  /// Iniciales del nombre (máximo 2 caracteres).
+  String get _initials {
+    final words = name.trim().split(RegExp(r'\s+'));
+    if (words.isEmpty || words.first.isEmpty) return '?';
+    if (words.length == 1) return words.first[0].toUpperCase();
+    return '${words.first[0]}${words.last[0]}'.toUpperCase();
+  }
+
+  /// Color de fondo determinista basado en el nombre.
+  Color get _bgColor {
+    final colors = [
+      const Color(0xFF4F46E5), // Indigo
+      const Color(0xFF0891B2), // Cyan
+      const Color(0xFF059669), // Emerald
+      const Color(0xFFD97706), // Amber
+      const Color(0xFFDC2626), // Red
+      const Color(0xFF7C3AED), // Violet
+      const Color(0xFFDB2777), // Pink
+      const Color(0xFF2563EB), // Blue
+    ];
+    final idx = name.isEmpty ? 0 : name.codeUnitAt(0) % colors.length;
+    return colors[idx];
+  }
+
+  bool get _hasValidUrl =>
+      imageUrl != null && imageUrl!.isNotEmpty && imageUrl!.startsWith('http');
+
+  @override
+  Widget build(BuildContext context) {
+    final container = _hasValidUrl
+        ? CachedNetworkImage(
+            imageUrl: imageUrl!,
+            imageBuilder: (_, imageProvider) => DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: imageProvider,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            errorWidget: (_, __, ___) => _InitialsFallback(
+              initials: _initials,
+              bgColor: _bgColor,
+              size: size,
+            ),
+            placeholder: (_, __) => _InitialsFallback(
+              initials: _initials,
+              bgColor: _bgColor,
+              size: size,
+            ),
+          )
+        : _InitialsFallback(
+            initials: _initials,
+            bgColor: _bgColor,
+            size: size,
+          );
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border:
+            showBorder ? Border.all(color: AppTheme.border, width: 1.5) : null,
+      ),
+      child: ClipOval(child: container),
+    );
+  }
+}
+
+class _InitialsFallback extends StatelessWidget {
+  const _InitialsFallback({
+    required this.initials,
+    required this.bgColor,
+    required this.size,
+  });
+
+  final String initials;
+  final Color bgColor;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      color: bgColor,
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: size * 0.38,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          height: 1,
         ),
       ),
     );

@@ -56,6 +56,7 @@ public class GetProjectByMemberHandler : IRequestHandler<GetProjectByMemberQuery
             project.Materia,
             project.MateriaId,
             project.Ciclo,
+            project.GrupoId,
             project.Estado,
             project.LiderId,
             project.DocenteId,
@@ -63,13 +64,16 @@ public class GetProjectByMemberHandler : IRequestHandler<GetProjectByMemberQuery
             project.StackTecnologico,
             project.RepositorioUrl,
             project.VideoUrl,
+            project.DemoUrl,
+            project.ThumbnailUrl,
             project.CanvasBlocks,
             members,
             project.CreatedAt.ToDateTime(),
             project.EsPublico,
             project.PuntosTotales,
             project.ConteoVotos,
-            project.Votantes ?? new Dictionary<string, int>()
+            project.Votantes ?? new Dictionary<string, int>(),
+            project.Calificacion
         );
     }
 }

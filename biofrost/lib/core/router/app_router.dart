@@ -7,12 +7,14 @@ import 'package:biofrost/features/profile/pages/profile_page.dart';
 import 'package:biofrost/features/project_detail/pages/project_detail_page.dart';
 import 'package:biofrost/features/ranking/pages/ranking_page.dart';
 import 'package:biofrost/features/showcase/pages/showcase_page.dart';
+import 'package:biofrost/features/test/pages/test_login_page.dart';
 
 /// Rutas de la aplicación — constantes para evitar strings sueltos.
 abstract class AppRoutes {
   // Públicas (Visitante + Docente)
   static const String splash = '/';
   static const String login = '/login';
+  static const String testLogin = '/test-login';
   static const String showcase = '/showcase';
   static const String ranking = '/ranking';
   static const String projectDetail = '/project/:id';
@@ -47,14 +49,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (isProtected) {
         // Si no hay sesión de Docente → redirect al login
-        final isDocente = authState is AuthStateAuthenticated &&
-            authState.user.isDocente;
+        final isDocente =
+            authState is AuthStateAuthenticated && authState.user.isDocente;
         if (!isDocente) return AppRoutes.login;
       }
 
       // Si ya autenticado y va al login → redirect al showcase
-      if (location == AppRoutes.login &&
-          authState is AuthStateAuthenticated) {
+      if (location == AppRoutes.login && authState is AuthStateAuthenticated) {
         return AppRoutes.showcase;
       }
 
@@ -66,6 +67,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.login,
         name: 'login',
         builder: (context, state) => const LoginPage(),
+      ),
+
+      // Test login page (dev only)
+      GoRoute(
+        path: AppRoutes.testLogin,
+        name: 'testLogin',
+        builder: (context, state) => const TestLoginPage(),
       ),
 
       // ── Showcase (público) ────────────────────────────────────────
@@ -101,4 +109,3 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-

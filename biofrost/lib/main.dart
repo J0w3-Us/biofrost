@@ -2,8 +2,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/cache/cache_service.dart';
+import 'core/config/app_config.dart';
 import 'core/deeplinks/deep_link_service.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/router/app_router.dart';
@@ -15,14 +17,23 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ── Firebase ──────────────────────────────────────────────────────────────
-  // Credenciales vía google-services.json (Android) / GoogleService-Info.plist (iOS).
   await Firebase.initializeApp();
+
+  // ── Supabase (Storage + Comments) ─────────────────────────────────────────
+  await Supabase.initialize(
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
+  );
 
   // ── Módulo 3: Caché ───────────────────────────────────────────────────────
   final prefs = await SharedPreferences.getInstance();
 
   // ── Módulo 3: Notificaciones Push ─────────────────────────────────────────
-  await NotificationService.instance.initialize();
+  // No se bloquea main() — el diálogo de permiso de Android 13 se resuelve
+  // en background para que runApp() no quede esperando al usuario.
+  NotificationService.instance.initialize().catchError(
+        (e) => debugPrint('[Boot] Notificaciones no disponibles: $e'),
+      );
 
   // ── Módulo 3: Deep Links ──────────────────────────────────────────────────
   await DeepLinkService.instance.initialize();

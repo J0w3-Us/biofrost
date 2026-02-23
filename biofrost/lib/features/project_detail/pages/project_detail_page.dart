@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:biofrost/core/cache/cache_service.dart';
 import 'package:biofrost/core/errors/app_exceptions.dart';
@@ -11,6 +14,8 @@ import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/core/widgets/ui_kit.dart';
 import 'package:biofrost/features/auth/providers/auth_provider.dart';
 import 'package:biofrost/features/evaluations/pages/evaluation_panel.dart';
+import 'package:biofrost/features/project_detail/widgets/comments_section.dart';
+import 'package:biofrost/features/project_detail/widgets/star_rating_section.dart';
 import 'package:biofrost/features/sharing/sharing.dart';
 import 'package:biofrost/features/showcase/providers/projects_provider.dart';
 
@@ -86,9 +91,9 @@ class _DetailContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        // ── AppBar colapsable ───────────────────────────────────────
+        // ── AppBar colapsable con imagen del proyecto ─────────────────
         SliverAppBar(
-          expandedHeight: 120,
+          expandedHeight: project.hasThumbnail ? 240 : 120,
           pinned: true,
           backgroundColor: AppTheme.surface0,
           surfaceTintColor: Colors.transparent,
@@ -111,22 +116,11 @@ class _DetailContent extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
+            background: project.hasThumbnail
+                ? _ProjectHero(url: project.thumbnailUrl!)
+                : const _ProjectHeroPlaceholder(),
           ),
           actions: [
-            if (project.hasVideo)
-              IconButton(
-                icon: const Icon(Icons.play_circle_outline_rounded,
-                    color: AppTheme.textSecondary),
-                tooltip: 'Ver video',
-                onPressed: () {/* Abrir video en webview/url */},
-              ),
-            if (project.hasRepo)
-              IconButton(
-                icon: const Icon(Icons.code_rounded,
-                    color: AppTheme.textSecondary),
-                tooltip: 'Repositorio',
-                onPressed: () {/* Abrir repo */},
-              ),
             // ── Botón Compartir — Módulo 5 ────────────────────────
             IconButton(
               icon: const Icon(Icons.ios_share_rounded,
@@ -146,6 +140,36 @@ class _DetailContent extends StatelessWidget {
               // Meta info (estado, materia, ciclo)
               _MetaRow(project: project),
               const SizedBox(height: AppTheme.sp20),
+
+              // Descripción del proyecto (si existe)
+              if (project.descripcion != null &&
+                  project.descripcion!.isNotEmpty) ...[
+                _Section(
+                  title: 'Descripción',
+                  child: Text(
+                    project.descripcion!,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppTheme.sp20),
+              ],
+
+              // Video Pitch
+              if (project.hasVideo) ...[
+                _VideoPitchCard(url: project.videoUrl!),
+                const SizedBox(height: AppTheme.sp20),
+              ],
+
+              // Links externos (repo + demo)
+              if (project.hasRepo || project.demoUrl != null) ...[
+                _ExternalLinksRow(project: project),
+                const SizedBox(height: AppTheme.sp20),
+              ],
 
               // Stack tecnológico
               _Section(
@@ -170,6 +194,18 @@ class _DetailContent extends StatelessWidget {
                 const SizedBox(height: AppTheme.sp20),
               ],
 
+              // Rating de la comunidad (visible para todos)
+              const BioDivider(label: 'CALIFICACIÓN'),
+              const SizedBox(height: AppTheme.sp16),
+              StarRatingSection(projectId: project.id),
+              const SizedBox(height: AppTheme.sp20),
+
+              // Comentarios (visibles para todos, escribir requiere auth)
+              const BioDivider(label: 'COMENTARIOS'),
+              const SizedBox(height: AppTheme.sp16),
+              CommentsSection(projectId: project.id),
+              const SizedBox(height: AppTheme.sp20),
+
               // Evaluaciones (solo Docente)
               if (isDocente) ...[
                 const BioDivider(label: 'EVALUACIONES'),
@@ -185,6 +221,251 @@ class _DetailContent extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// _ProjectHero — Imagen thumbnail desde Supabase Storage
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _ProjectHero extends StatelessWidget {
+  const _ProjectHero({required this.url});
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => const _ProjectHeroPlaceholder(),
+          errorWidget: (_, __, ___) => const _ProjectHeroPlaceholder(),
+        ),
+        // Gradiente para que el título sea legible sobre la imagen
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.transparent, AppTheme.surface0],
+              stops: [0.4, 1.0],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProjectHeroPlaceholder extends StatelessWidget {
+  const _ProjectHeroPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.surface1, AppTheme.surface2],
+        ),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.folder_copy_outlined,
+          size: 40,
+          color: AppTheme.textDisabled,
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// _VideoPitchCard — Video principal del proyecto
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _VideoPitchCard extends StatelessWidget {
+  const _VideoPitchCard({required this.url});
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _launchUrl(url),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface1,
+          borderRadius: AppTheme.bLG,
+          border: Border.all(color: AppTheme.border),
+        ),
+        padding: const EdgeInsets.all(AppTheme.sp16),
+        child: Row(
+          children: [
+            // Thumbnail / icono play
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppTheme.surface2,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.play_circle_filled_rounded,
+                color: AppTheme.textPrimary,
+                size: 30,
+              ),
+            ),
+            const SizedBox(width: AppTheme.sp16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Video Pitch',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _displayUrl(url),
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppTheme.textDisabled,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  const Row(
+                    children: [
+                      Icon(Icons.open_in_new_rounded,
+                          size: 12, color: AppTheme.textDisabled),
+                      SizedBox(width: 4),
+                      Text(
+                        'Reproducir',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          color: AppTheme.textDisabled,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// _ExternalLinksRow — Repositorio y Demo side by side
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _ExternalLinksRow extends StatelessWidget {
+  const _ExternalLinksRow({required this.project});
+  final ProjectDetailReadModel project;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasRepo = project.hasRepo;
+    final hasDemo = project.demoUrl != null && project.demoUrl!.isNotEmpty;
+
+    return Row(
+      children: [
+        if (hasRepo) ...[
+          Expanded(
+            child: _LinkCard(
+              icon: Icons.code_rounded,
+              label: 'Repositorio',
+              url: project.repositorioUrl!,
+            ),
+          ),
+          if (hasDemo) const SizedBox(width: AppTheme.sp8),
+        ],
+        if (hasDemo)
+          Expanded(
+            child: _LinkCard(
+              icon: Icons.public_rounded,
+              label: 'Demo',
+              url: project.demoUrl!,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _LinkCard extends StatelessWidget {
+  const _LinkCard({
+    required this.icon,
+    required this.label,
+    required this.url,
+  });
+  final IconData icon;
+  final String label;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _launchUrl(url),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.sp12, vertical: AppTheme.sp12),
+        decoration: BoxDecoration(
+          color: AppTheme.surface1,
+          borderRadius: AppTheme.bMD,
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: AppTheme.textSecondary),
+            const SizedBox(width: AppTheme.sp8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    _displayUrl(url),
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      color: AppTheme.textDisabled,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded,
+                size: 12, color: AppTheme.textDisabled),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -224,7 +505,8 @@ class _SharingSheet extends StatelessWidget {
           // Handle
           Center(
             child: Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
                 color: AppTheme.border,
@@ -327,7 +609,8 @@ class _ShareOption extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 44, height: 44,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: AppTheme.surface2,
                     borderRadius: BorderRadius.circular(12),
@@ -572,47 +855,327 @@ class _CanvasBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final type = block['type'] as String? ?? 'Bloque';
+    final type = block['type'] as String? ?? 'text';
     final content =
         block['content'] as String? ?? block['text'] as String? ?? '';
 
+    switch (type) {
+      // ── Encabezados ─────────────────────────────────────────────
+      case 'h1':
+      case 'heading':
+        if (content.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding:
+              const EdgeInsets.only(bottom: AppTheme.sp16, top: AppTheme.sp8),
+          child: Text(
+            content,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+              height: 1.3,
+            ),
+          ),
+        );
+
+      case 'h2':
+        if (content.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding:
+              const EdgeInsets.only(bottom: AppTheme.sp12, top: AppTheme.sp6),
+          child: Text(
+            content,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+              height: 1.3,
+            ),
+          ),
+        );
+
+      case 'h3':
+        if (content.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding:
+              const EdgeInsets.only(bottom: AppTheme.sp8, top: AppTheme.sp4),
+          child: Text(
+            content,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+              height: 1.3,
+            ),
+          ),
+        );
+
+      // ── Texto cuerpo ─────────────────────────────────────────────
+      case 'text':
+        if (content.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppTheme.sp12),
+          child: Text(
+            content,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: AppTheme.textSecondary,
+              height: 1.7,
+            ),
+          ),
+        );
+
+      // ── Código ───────────────────────────────────────────────────
+      case 'code':
+        if (content.isEmpty) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.only(bottom: AppTheme.sp12),
+          padding: const EdgeInsets.all(AppTheme.sp12),
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppTheme.surface2,
+            borderRadius: AppTheme.bMD,
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.terminal_rounded,
+                  size: 14, color: AppTheme.textDisabled),
+              const SizedBox(width: AppTheme.sp8),
+              Expanded(
+                child: Text(
+                  content,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      // ── Imagen ───────────────────────────────────────────────────
+      case 'image':
+        if (content.isEmpty) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.only(bottom: AppTheme.sp12),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: AppTheme.bMD,
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: CachedNetworkImage(
+            imageUrl: content,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            placeholder: (_, __) => Container(
+              height: 180,
+              color: AppTheme.surface2,
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+            errorWidget: (_, __, ___) => Container(
+              height: 120,
+              color: AppTheme.surface2,
+              child: const Center(
+                child: Icon(Icons.broken_image_rounded,
+                    color: AppTheme.textDisabled, size: 32),
+              ),
+            ),
+          ),
+        );
+
+      // ── Video en canvas ──────────────────────────────────────────
+      case 'video':
+        if (content.isEmpty) return const SizedBox.shrink();
+        return _CanvasVideoCard(
+          url: content,
+          margin: const EdgeInsets.only(bottom: AppTheme.sp12),
+        );
+
+      // ── Link ─────────────────────────────────────────────────────
+      case 'link':
+        if (content.isEmpty) return const SizedBox.shrink();
+        return _CanvasLinkCard(
+          url: content,
+          margin: const EdgeInsets.only(bottom: AppTheme.sp12),
+        );
+
+      // ── Fallback: cualquier otro tipo ────────────────────────────
+      default:
+        if (content.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppTheme.sp12),
+          child: Text(
+            content,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: AppTheme.textSecondary,
+              height: 1.7,
+            ),
+          ),
+        );
+    }
+  }
+}
+
+// ── Card de video en canvas ───────────────────────────────────────────────
+
+class _CanvasVideoCard extends StatelessWidget {
+  const _CanvasVideoCard({required this.url, this.margin});
+  final String url;
+  final EdgeInsets? margin;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: AppTheme.sp8),
-      padding: const EdgeInsets.all(AppTheme.sp12),
+      margin: margin,
       decoration: BoxDecoration(
         color: AppTheme.surface1,
         borderRadius: AppTheme.bMD,
         border: Border.all(color: AppTheme.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            type.toUpperCase(),
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textDisabled,
-              letterSpacing: 1,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _launchUrl(url),
+          borderRadius: AppTheme.bMD,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.sp16),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface2,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.play_circle_filled_rounded,
+                    color: AppTheme.textPrimary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: AppTheme.sp12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Video',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _displayUrl(url),
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          color: AppTheme.textDisabled,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.open_in_new_rounded,
+                    size: 16, color: AppTheme.textDisabled),
+              ],
             ),
           ),
-          if (content.isNotEmpty) ...[
-            const SizedBox(height: AppTheme.sp6),
-            Text(
-              content,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                color: AppTheme.textSecondary,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
+}
+
+// ── Card de link en canvas ────────────────────────────────────────────────
+
+class _CanvasLinkCard extends StatelessWidget {
+  const _CanvasLinkCard({required this.url, this.margin});
+  final String url;
+  final EdgeInsets? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        color: AppTheme.surface1,
+        borderRadius: AppTheme.bMD,
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _launchUrl(url),
+          borderRadius: AppTheme.bMD,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.sp12),
+            child: Row(
+              children: [
+                const Icon(Icons.link_rounded,
+                    size: 18, color: AppTheme.textDisabled),
+                const SizedBox(width: AppTheme.sp8),
+                Expanded(
+                  child: Text(
+                    _displayUrl(url),
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                      decoration: TextDecoration.underline,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(Icons.open_in_new_rounded,
+                    size: 14, color: AppTheme.textDisabled),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Helpers de URL ────────────────────────────────────────────────────────
+
+Future<void> _launchUrl(String rawUrl) async {
+  final uri = Uri.tryParse(rawUrl);
+  if (uri == null) return;
+  if (await canLaunchUrl(uri))
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+
+String _displayUrl(String rawUrl) {
+  final uri = Uri.tryParse(rawUrl);
+  if (uri == null) return rawUrl;
+  final host = uri.host.replaceFirst('www.', '');
+  return host.isNotEmpty ? host : rawUrl;
 }
 
 // ── Skeleton de carga ─────────────────────────────────────────────────────

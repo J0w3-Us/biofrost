@@ -18,35 +18,50 @@ class ProjectReadModel extends Equatable {
     required this.stackTecnologico,
     this.liderNombre,
     this.liderId,
+    this.liderFotoUrl,
     this.docenteId,
     this.docenteNombre,
     this.materia_,
     this.ciclo,
     this.puntosTotales,
+    this.conteoVotos,
+    this.votantes,
     this.esPublico = false,
     this.videoUrl,
     this.createdAt,
     this.grupoId,
+    this.thumbnailUrl,
+    this.descripcion,
   });
 
   final String id;
   final String titulo;
   final String materia;
+
   /// 'Activo' | 'Completado' | 'Borrador'
   final String estado;
   final List<String> stackTecnologico;
   final String? liderNombre;
   final String? liderId;
+  final String? liderFotoUrl;
   final String? docenteId;
   final String? docenteNombre;
   final String? materia_; // alias interno
   final String? ciclo;
   final int? puntosTotales;
+
+  /// Suma acumulada de puntos de votos individuales.
+  final int? conteoVotos;
+
+  /// Mapa userId → stars. Permite saber si el usuario ya votó.
+  /// Refleja el campo Votantes del DTO .NET.
+  final Map<String, int>? votantes;
   final bool esPublico;
   final String? videoUrl;
   final DateTime? createdAt;
   final String? grupoId;
-
+  final String? thumbnailUrl;
+  final String? descripcion;
   // ── Computed ────────────────────────────────────────────────────────
 
   /// Primeras 3 tecnologías del stack para mostrar en tarjeta.
@@ -77,17 +92,23 @@ class ProjectReadModel extends Equatable {
       titulo: _str(json, ['titulo', 'Titulo']) ?? 'Sin título',
       materia: _str(json, ['materia', 'Materia']) ?? '',
       estado: _str(json, ['estado', 'Estado']) ?? 'Borrador',
-      stackTecnologico: _strList(json, ['stackTecnologico', 'StackTecnologico']),
+      stackTecnologico:
+          _strList(json, ['stackTecnologico', 'StackTecnologico']),
       liderNombre: _str(json, ['liderNombre', 'LiderNombre']),
       liderId: _str(json, ['liderId', 'LiderId']),
+      liderFotoUrl: _str(json, ['liderFotoUrl', 'LiderFotoUrl']),
       docenteId: _str(json, ['docenteId', 'DocenteId']),
       docenteNombre: _str(json, ['docenteNombre', 'DocenteNombre']),
       ciclo: _str(json, ['ciclo', 'Ciclo']),
       puntosTotales: _int(json, ['puntosTotales', 'PuntosTotales']),
+      conteoVotos: _int(json, ['conteoVotos', 'ConteoVotos']),
+      votantes: _votantesMap(json, ['votantes', 'Votantes']),
       esPublico: _bool(json, ['esPublico', 'EsPublico']),
       videoUrl: _str(json, ['videoUrl', 'VideoUrl']),
       createdAt: _datetime(json, ['createdAt', 'CreatedAt']),
       grupoId: _str(json, ['grupoId', 'GrupoId']),
+      thumbnailUrl: _str(json, ['thumbnailUrl', 'ThumbnailUrl']),
+      descripcion: _str(json, ['descripcion', 'Descripcion']),
     );
   }
 
@@ -99,20 +120,32 @@ class ProjectReadModel extends Equatable {
         'stackTecnologico': stackTecnologico,
         'liderNombre': liderNombre,
         'liderId': liderId,
+        'liderFotoUrl': liderFotoUrl,
         'docenteId': docenteId,
         'docenteNombre': docenteNombre,
         'ciclo': ciclo,
         'puntosTotales': puntosTotales,
+        'conteoVotos': conteoVotos,
+        'votantes': votantes,
         'esPublico': esPublico,
         'videoUrl': videoUrl,
         'createdAt': createdAt?.toIso8601String(),
         'grupoId': grupoId,
+        'thumbnailUrl': thumbnailUrl,
+        'descripcion': descripcion,
       };
 
   @override
   List<Object?> get props => [
-        id, titulo, materia, estado, stackTecnologico,
-        liderNombre, docenteId, puntosTotales, esPublico,
+        id,
+        titulo,
+        materia,
+        estado,
+        stackTecnologico,
+        liderNombre,
+        docenteId,
+        puntosTotales,
+        esPublico,
       ];
 }
 
@@ -133,12 +166,17 @@ class ProjectDetailReadModel extends Equatable {
     this.docenteNombre,
     this.ciclo,
     this.puntosTotales,
+    this.conteoVotos,
+    this.votantes,
     this.esPublico = false,
     this.videoUrl,
     this.repositorioUrl,
     this.createdAt,
     this.grupoId,
     this.materiaId,
+    this.thumbnailUrl,
+    this.descripcion,
+    this.demoUrl,
   });
 
   final String id;
@@ -154,16 +192,36 @@ class ProjectDetailReadModel extends Equatable {
   final String? docenteNombre;
   final String? ciclo;
   final int? puntosTotales;
+
+  /// Suma acumulada de puntos de votos individuales.
+  final int? conteoVotos;
+
+  /// Mapa userId → stars del detalle. Fijado por el backend.
+  final Map<String, int>? votantes;
   final bool esPublico;
   final String? videoUrl;
   final String? repositorioUrl;
   final DateTime? createdAt;
   final String? grupoId;
   final String? materiaId;
+  final String? thumbnailUrl;
+  final String? descripcion;
+  final String? demoUrl;
 
   bool get hasVideo => videoUrl != null && videoUrl!.isNotEmpty;
   bool get hasRepo => repositorioUrl != null && repositorioUrl!.isNotEmpty;
+  bool get hasThumbnail => thumbnailUrl != null && thumbnailUrl!.isNotEmpty;
   int get memberCount => members.length;
+
+  /// Promedio de calificación por estrellas (1–5) basado en `votantes`.
+  double get starAverage {
+    if (votantes == null || votantes!.isEmpty) return 0.0;
+    final sum = votantes!.values.fold<int>(0, (a, b) => a + b);
+    return sum / votantes!.length;
+  }
+
+  /// Estrellas que dio el usuario con [userId] (null si no ha votado).
+  int? userStars(String userId) => votantes?[userId];
 
   factory ProjectDetailReadModel.fromJson(Map<String, dynamic> json) {
     final raw = _normalizeKeys(json);
@@ -180,13 +238,19 @@ class ProjectDetailReadModel extends Equatable {
       docenteId: raw['docenteId'] as String?,
       docenteNombre: raw['docenteNombre'] as String?,
       ciclo: raw['ciclo'] as String?,
-      puntosTotales: raw['puntosTotales'] as int?,
+      // puntosTotales llega como double desde .NET (ej: 85.0) — usar helper int
+      puntosTotales: _int(raw, ['puntosTotales']),
+      conteoVotos: _int(raw, ['conteoVotos']),
+      votantes: _votantesMap(raw, ['votantes']),
       esPublico: raw['esPublico'] as bool? ?? false,
       videoUrl: raw['videoUrl'] as String?,
       repositorioUrl: raw['repositorioUrl'] as String?,
       createdAt: _datetime(raw, ['createdAt']),
       grupoId: raw['grupoId'] as String?,
       materiaId: raw['materiaId'] as String?,
+      thumbnailUrl: raw['thumbnailUrl'] as String?,
+      descripcion: raw['descripcion'] as String?,
+      demoUrl: raw['demoUrl'] as String?,
     );
   }
 
@@ -204,12 +268,17 @@ class ProjectDetailReadModel extends Equatable {
         'docenteNombre': docenteNombre,
         'ciclo': ciclo,
         'puntosTotales': puntosTotales,
+        'conteoVotos': conteoVotos,
+        'votantes': votantes,
         'esPublico': esPublico,
         'videoUrl': videoUrl,
         'repositorioUrl': repositorioUrl,
         'createdAt': createdAt?.toIso8601String(),
         'grupoId': grupoId,
         'materiaId': materiaId,
+        'thumbnailUrl': thumbnailUrl,
+        'descripcion': descripcion,
+        'demoUrl': demoUrl,
       };
 
   @override
@@ -246,10 +315,12 @@ class ProjectMemberReadModel extends Equatable {
     return ProjectMemberReadModel(
       id: raw['id'] as String? ?? '',
       nombre: raw['nombre'] as String? ??
-          raw['nombreCompleto'] as String? ?? 'Miembro',
+          raw['nombreCompleto'] as String? ??
+          'Miembro',
       email: raw['email'] as String?,
       fotoUrl: raw['fotoUrl'] as String? ?? raw['photoUrl'] as String?,
-      esLider: raw['esLider'] as bool? ?? false,
+      // Backend envía 'rol: "Líder"' en lugar de 'esLider: bool'
+      esLider: raw['esLider'] as bool? ?? (raw['rol'] as String?) == 'Líder',
       matricula: raw['matricula'] as String?,
     );
   }
@@ -272,9 +343,8 @@ class ProjectMemberReadModel extends Equatable {
 /// Normaliza todas las claves del Map de PascalCase → camelCase.
 Map<String, dynamic> _normalizeKeys(Map<String, dynamic> json) {
   return json.map((key, value) {
-    final camelKey = key.isNotEmpty
-        ? key[0].toLowerCase() + key.substring(1)
-        : key;
+    final camelKey =
+        key.isNotEmpty ? key[0].toLowerCase() + key.substring(1) : key;
     return MapEntry(camelKey, value);
   });
 }
@@ -312,6 +382,27 @@ bool _bool(Map<String, dynamic> json, List<String> keys) {
     if (val is int) return val == 1;
   }
   return false;
+}
+
+/// Parsea el mapa Votantes: { userId: stars } del backend .NET.
+/// El backend lo serializa como Map<string,object> o Map<string,int>.
+Map<String, int>? _votantesMap(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final val = json[key];
+    if (val is Map) {
+      try {
+        return val.map((k, v) => MapEntry(
+              k.toString(),
+              v is int
+                  ? v
+                  : (v is double ? v.toInt() : int.tryParse(v.toString()) ?? 0),
+            ));
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+  return null;
 }
 
 /// Parsea fechas desde Firestore Timestamp, ISO string o epoch seconds.

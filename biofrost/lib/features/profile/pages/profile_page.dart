@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:biofrost/core/models/evaluation_read_model.dart';
+import 'package:biofrost/core/models/user_read_model.dart';
 import 'package:biofrost/core/router/app_router.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/core/widgets/ui_kit.dart';
@@ -56,13 +60,16 @@ class ProfilePage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header de perfil ─────────────────────────────────────
+            // ── Header de perfil ───────────────────────────────────────────
             _ProfileHeader(
-              name: user.nombreCompleto,
-              email: user.email,
-              avatarUrl: user.avatarUrl,
-              rol: user.rol,
+              user: user,
             ),
+
+            // ── KPIs de Docente ────────────────────────────────────
+            if (user.isDocente) ...[  
+              const SizedBox(height: AppTheme.sp24),
+              _DocenteKPIs(docenteId: user.userId),
+            ],
 
             const SizedBox(height: AppTheme.sp24),
             const BioDivider(),
@@ -209,32 +216,113 @@ class ProfilePage extends ConsumerWidget {
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
-    required this.name,
-    required this.email,
-    required this.avatarUrl,
-    required this.rol,
-  });
+/// Header de perfil con foto editable y badge de rol.
+///
+/// Equivalente del fix de foto de perfil en IntegradorHub:
+/// docs/Historial_De_Avances_Completados.md § Funcionalidad de Foto de Perfil.
+class _ProfileHeader extends ConsumerStatefulWidget {
+  const _ProfileHeader({required this.user});
+  final UserReadModel user;
 
-  final String name;
-  final String email;
-  final String avatarUrl;
-  final String rol;
+  @override
+  ConsumerState<_ProfileHeader> createState() => _ProfileHeaderState();
+}
+
+class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
+  bool _isUploading = false;
+
+  Future<void> _pickAndUpload() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (pickedFile == null) return;
+    if (!mounted) return;
+
+    setState(() => _isUploading = true);
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .updateProfilePhoto(File(pickedFile.path));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto actualizada'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al subir foto: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = widget.user;
     return Row(
       children: [
-        // Avatar grande
-        BioAvatar(url: avatarUrl, size: 72, showBorder: true),
+        // Avatar grande con botón de cámara superpuesto
+        Stack(
+          children: [
+            UserAvatar(
+              name: user.nombreCompleto,
+              imageUrl: user.fotoUrl,
+              size: 72,
+              showBorder: true,
+            ),
+            // Botón cámara circular (solo para Docentes / Admins)
+            if (user.isDocente || user.isAdmin)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: GestureDetector(
+                  onTap: _isUploading ? null : _pickAndUpload,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: AppTheme.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: _isUploading
+                        ? const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.black,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.camera_alt_rounded,
+                            size: 14,
+                            color: AppTheme.black,
+                          ),
+                  ),
+                ),
+              ),
+          ],
+        ),
         const SizedBox(width: AppTheme.sp16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                name,
+                user.nombreCompleto,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 20,
@@ -245,19 +333,133 @@ class _ProfileHeader extends StatelessWidget {
               ),
               const SizedBox(height: AppTheme.sp4),
               Text(
-                email,
+                user.email,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
                   color: AppTheme.textSecondary,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: AppTheme.sp8),
-              _RoleBadge(rol),
+              _RoleBadge(user.rol),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── KPIs de Docente (TeacherDashboard stats) ──────────────────────────────
+
+/// KPIs del Docente derivados de su historial de evaluaciones.
+///
+/// Equivalente móvil de TeacherDashboard.jsx de IntegradorHub.
+/// Muestra: total evaluaciones, aprobados (≥70), con nota oficial.
+class _DocenteKPIs extends ConsumerWidget {
+  const _DocenteKPIs({required this.docenteId});
+  final String docenteId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(docenteEvaluationHistoryProvider(docenteId));
+
+    return async.when(
+      loading: () => Row(
+        children: List.generate(3, (_) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.sp4),
+            child: BioSkeleton(
+              width: double.infinity,
+              height: 72,
+              borderRadius: AppTheme.bMD,
+            ),
+          ),
+        )),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (evaluations) {
+        final total = evaluations.length;
+        final aprobados = evaluations
+            .where((e) => e.isOficial && (e.calificacion ?? 0) >= 70)
+            .length;
+        final conNota = evaluations.where((e) => e.hasGrade).length;
+
+        return Row(
+          children: [
+            Expanded(child: _KpiCard(
+              icon: Icons.assignment_outlined,
+              label: 'Evaluaciones',
+              value: '$total',
+            )),
+            const SizedBox(width: AppTheme.sp8),
+            Expanded(child: _KpiCard(
+              icon: Icons.check_circle_outline_rounded,
+              label: 'Aprobados',
+              value: '$aprobados',
+              accent: AppTheme.success,
+            )),
+            const SizedBox(width: AppTheme.sp8),
+            Expanded(child: _KpiCard(
+              icon: Icons.star_outline_rounded,
+              label: 'Con nota',
+              value: '$conNota',
+              accent: AppTheme.warning,
+            )),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.accent,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accent ?? AppTheme.textSecondary;
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.sp12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface1,
+        borderRadius: AppTheme.bMD,
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: AppTheme.sp6),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 10,
+              color: AppTheme.textDisabled,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

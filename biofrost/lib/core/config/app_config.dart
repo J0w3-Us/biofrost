@@ -13,16 +13,24 @@ class AppConfig {
   // ── Backend API ────────────────────────────────────────────────────
   /// URL base del backend IntegradorHub (.NET).
   ///
-  /// ⚠️  `localhost` NO es alcanzable desde un dispositivo físico ni emulador.
-  /// Opciones de desarrollo:
-  ///   - Emulador Android  → 'http://10.0.2.2:7001'
-  ///   - Emulador iOS      → 'http://127.0.0.1:7001'
-  ///   - Dispositivo real  → 'http://<IP_LAN_PC>:7001'  (ej. 192.168.1.X)
-  ///   - Producción        → URL pública del servidor
+  /// Se inyecta en tiempo de compilación con --dart-define:
   ///
-  /// Cambia el valor según el entorno antes de compilar:
-  static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:7001');
+  ///   Dev (USB físico):
+  ///     flutter run   → scripts/dev_run.ps1
+  ///
+  ///   Producción (Railway):
+  ///     flutter build → scripts/build_prod.ps1
+  ///
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:5093',
+  );
+
+  /// True cuando la app está apuntando a un servidor de producción (Railway).
+  static bool get isProduction =>
+      !apiBaseUrl.contains('localhost') &&
+      !apiBaseUrl.contains('10.0.2.2') &&
+      !apiBaseUrl.contains('127.0.0.1');
 
   /// Prefijo para todos los endpoints de la API REST.
   static const String apiPrefix = '/api';
@@ -60,4 +68,14 @@ class AppConfig {
   // ── Móvil: roles permitidos ────────────────────────────────────────
   /// Solo estos roles pueden autenticarse en la app móvil.
   static const List<String> allowedMobileRoles = [roleDocente, roleVisitante];
+
+  // ── Supabase Storage ───────────────────────────────────────────────
+  static const String supabaseUrl = 'https://zhnufraaybrruqdtgbwj.supabase.co';
+  static const String supabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpobnVmcmFheWJycnVxZHRnYndqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1Njc3MDAsImV4cCI6MjA4NjE0MzcwMH0.qgMscHH824bf9i3PapqjnmRZYolkOPgiKGRXNs_SZMM';
+  static const String supabaseBucket = 'project-files';
+
+  /// Construye la URL pública de un archivo en Supabase Storage.
+  static String storageUrl(String filePath) =>
+      '$supabaseUrl/storage/v1/object/public/$supabaseBucket/$filePath';
 }

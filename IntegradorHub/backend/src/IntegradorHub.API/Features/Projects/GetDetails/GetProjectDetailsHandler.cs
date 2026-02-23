@@ -49,6 +49,7 @@ public class GetProjectDetailsHandler : IRequestHandler<GetProjectDetailsQuery, 
             project.Materia,
             project.MateriaId,
             project.Ciclo,
+            project.GrupoId,
             project.Estado,
             project.LiderId,
             project.DocenteId,
@@ -56,13 +57,16 @@ public class GetProjectDetailsHandler : IRequestHandler<GetProjectDetailsQuery, 
             project.StackTecnologico,
             project.RepositorioUrl,
             project.VideoUrl,
+            project.DemoUrl,
+            project.ThumbnailUrl,
             project.CanvasBlocks,
             members,
             project.CreatedAt.ToDateTime(),
             project.EsPublico,
             project.PuntosTotales,
             project.ConteoVotos,
-            project.Votantes ?? new Dictionary<string, int>()
+            project.Votantes ?? new Dictionary<string, int>(),
+            project.Calificacion
         );
     }
 }
@@ -73,6 +77,7 @@ public record ProjectDetailsDto(
     string Materia,
     string MateriaId,
     string Ciclo,
+    string GrupoId,
     string Estado,
     string LiderId,
     string? DocenteId,
@@ -80,13 +85,16 @@ public record ProjectDetailsDto(
     List<string> StackTecnologico,
     string? RepositorioUrl,
     string? VideoUrl,
+    string? DemoUrl,
+    string? ThumbnailUrl,
     List<CanvasBlock> Canvas,
     List<MemberDto> Members,
     DateTime CreatedAt,
     bool EsPublico,
     double PuntosTotales,
     int ConteoVotos,
-    Dictionary<string, int> Votantes
+    Dictionary<string, int> Votantes,
+    double? Calificacion
 );
 
 public record MemberDto(string Id, string Nombre, string Email, string? FotoUrl, string Rol);

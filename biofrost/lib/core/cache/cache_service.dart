@@ -42,13 +42,29 @@ class CacheService {
       final expiry = ttl ?? AppConfig.cacheTimeout;
 
       if (DateTime.now().difference(savedAt) > expiry) {
-        _prefs.remove(key); // limpia entrada expirada
+        // No eliminamos los datos — pueden usarse como fallback offline.
+        // Se sobreescriben cuando llegan datos frescos de la red.
         return null;
       }
 
       return wrapper['data'] as String;
     } catch (_) {
       _prefs.remove(key);
+      return null;
+    }
+  }
+
+  /// Devuelve el JSON almacenado **ignorando el TTL**.
+  ///
+  /// Usar exclusivamente como fallback offline cuando la red falla
+  /// y el caché normal ya expiró. Nunca use esto para lógica normal.
+  String? readStale(String key) {
+    final raw = _prefs.getString(key);
+    if (raw == null) return null;
+    try {
+      final wrapper = jsonDecode(raw) as Map<String, dynamic>;
+      return wrapper['data'] as String;
+    } catch (_) {
       return null;
     }
   }

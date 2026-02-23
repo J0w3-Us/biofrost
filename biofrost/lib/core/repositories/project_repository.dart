@@ -55,27 +55,43 @@ class ProjectRepository {
         final projects = _parseProjectList(
           (jsonDecode(diskJson) as List).cast<Map<String, dynamic>>(),
         );
-        _listCache[cacheKey] = _CacheEntry(projects, ttl: AppConfig.showcaseCacheTtl);
+        _listCache[cacheKey] =
+            _CacheEntry(projects, ttl: AppConfig.showcaseCacheTtl);
         return projects;
       }
     }
 
     // 3. Red
-    final response = await _api.get<List<dynamic>>(
-      ApiEndpoints.projectsPublic,
-      authenticated: false,
-    );
+    try {
+      final response = await _api.get<List<dynamic>>(
+        ApiEndpoints.projectsPublic,
+        authenticated: false,
+      );
 
-    final projects = _parseProjectList(response.data ?? []);
-    _listCache[cacheKey] = _CacheEntry(projects, ttl: AppConfig.showcaseCacheTtl);
+      final projects = _parseProjectList(response.data ?? []);
+      _listCache[cacheKey] =
+          _CacheEntry(projects, ttl: AppConfig.showcaseCacheTtl);
 
-    // Persistir en disco
-    await _cache.write(
-      CacheService.keyProjects,
-      jsonEncode(projects.map((p) => p.toJson()).toList()),
-    );
+      // Persistir en disco
+      await _cache.write(
+        CacheService.keyProjects,
+        jsonEncode(projects.map((p) => p.toJson()).toList()),
+      );
 
-    return projects;
+      return projects;
+    } on NetworkException {
+      // Fallback offline: servir datos guardados aunque el TTL haya expirado.
+      final staleJson = _cache.readStale(CacheService.keyProjects);
+      if (staleJson != null) {
+        final projects = _parseProjectList(
+          (jsonDecode(staleJson) as List).cast<Map<String, dynamic>>(),
+        );
+        _listCache[cacheKey] =
+            _CacheEntry(projects, ttl: AppConfig.showcaseCacheTtl);
+        return projects;
+      }
+      rethrow;
+    }
   }
 
   /// Obtiene proyectos públicos ordenados por puntuación para el Ranking.
@@ -112,7 +128,8 @@ class ProjectRepository {
     );
 
     final projects = _parseProjectList(response.data ?? []);
-    _listCache[cacheKey] = _CacheEntry(projects, ttl: const Duration(minutes: 2));
+    _listCache[cacheKey] =
+        _CacheEntry(projects, ttl: const Duration(minutes: 2));
     return projects;
   }
 
@@ -147,27 +164,67 @@ class ProjectRepository {
       }
     }
 
-    // 3. Red
-    final response = await _api.get<Map<String, dynamic>>(
-      ApiEndpoints.projectById(projectId),
-    );
-
-    if (response.data == null) {
-      throw NotFoundException(
-        message: 'El proyecto con ID $projectId no fue encontrado.',
+    // 3. Red — endpoint público, no requiere token
+    try {
+      final response = await _api.get<Map<String, dynamic>>(
+        ApiEndpoints.projectById(projectId),
+        authenticated: false,
       );
+
+      if (response.data == null) {
+        throw NotFoundException(
+          message: 'El proyecto con ID $projectId no fue encontrado.',
+        );
+      }
+
+      final project = ProjectDetailReadModel.fromJson(response.data!);
+      _detailCache[projectId] = _CacheEntry(project);
+
+      // Persistir en disco
+      await _cache.write(
+        '${CacheService.keyProjectPrefix}$projectId',
+        jsonEncode(project.toJson()),
+      );
+
+      return project;
+    } on NetworkException {
+      // Fallback offline: servir datos guardados aunque el TTL haya expirado.
+      final staleJson = _cache.readStale(
+        '${CacheService.keyProjectPrefix}$projectId',
+      );
+      if (staleJson != null) {
+        final project = ProjectDetailReadModel.fromJson(
+          jsonDecode(staleJson) as Map<String, dynamic>,
+        );
+        _detailCache[projectId] = _CacheEntry(project);
+        return project;
+      }
+      rethrow;
     }
+  }
 
-    final project = ProjectDetailReadModel.fromJson(response.data!);
-    _detailCache[projectId] = _CacheEntry(project);
+  // ── CQRS Command: Votar con estrellas ─────────────────────────────
 
-    // Persistir en disco
-    await _cache.write(
-      '${CacheService.keyProjectPrefix}$projectId',
-      jsonEncode(project.toJson()),
+  /// Envía la calificación del usuario al backend.
+  ///
+  /// El backend actualiza Votantes[userId] = stars y recalcula PuntosTotales.
+  /// Fix de IntegradorHub: se usa `userId` (no `id`). Ver docs Project_Rating_Fixes.md.
+  ///
+  /// Throws [AppException] si el servidor rechaza el voto (ej: es el líder).
+  Future<void> rateProject({
+    required String projectId,
+    required String userId,
+    required int stars,
+  }) async {
+    await _api.post<void>(
+      ApiEndpoints.rateProject(projectId),
+      data: {
+        'userId': userId,
+        'stars': stars,
+      },
     );
-
-    return project;
+    // Invalidar caché del detalle para reflejar el nuevo mapa Votantes.
+    invalidateProject(projectId);
   }
 
   // ── Filtrado local (sin llamada adicional a API) ───────────────────

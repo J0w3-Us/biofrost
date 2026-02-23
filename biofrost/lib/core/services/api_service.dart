@@ -56,11 +56,11 @@ class ApiService {
     Map<String, dynamic>? queryParams,
     bool authenticated = true,
   }) async {
-    return _dio.get<T>(
-      path,
-      queryParameters: queryParams,
-      options: Options(extra: {'authenticated': authenticated}),
-    );
+    return _unwrap(() => _dio.get<T>(
+          path,
+          queryParameters: queryParams,
+          options: Options(extra: {'authenticated': authenticated}),
+        ));
   }
 
   /// POST — CQRS Command (escritura).
@@ -69,11 +69,11 @@ class ApiService {
     Object? data,
     bool authenticated = true,
   }) async {
-    return _dio.post<T>(
-      path,
-      data: data,
-      options: Options(extra: {'authenticated': authenticated}),
-    );
+    return _unwrap(() => _dio.post<T>(
+          path,
+          data: data,
+          options: Options(extra: {'authenticated': authenticated}),
+        ));
   }
 
   /// PATCH — CQRS Command (actualización parcial).
@@ -82,11 +82,11 @@ class ApiService {
     Object? data,
     bool authenticated = true,
   }) async {
-    return _dio.patch<T>(
-      path,
-      data: data,
-      options: Options(extra: {'authenticated': authenticated}),
-    );
+    return _unwrap(() => _dio.patch<T>(
+          path,
+          data: data,
+          options: Options(extra: {'authenticated': authenticated}),
+        ));
   }
 
   /// PUT — CQRS Command (reemplazo completo).
@@ -95,11 +95,11 @@ class ApiService {
     Object? data,
     bool authenticated = true,
   }) async {
-    return _dio.put<T>(
-      path,
-      data: data,
-      options: Options(extra: {'authenticated': authenticated}),
-    );
+    return _unwrap(() => _dio.put<T>(
+          path,
+          data: data,
+          options: Options(extra: {'authenticated': authenticated}),
+        ));
   }
 
   /// DELETE — CQRS Command (eliminación).
@@ -107,10 +107,25 @@ class ApiService {
     String path, {
     bool authenticated = true,
   }) async {
-    return _dio.delete<T>(
-      path,
-      options: Options(extra: {'authenticated': authenticated}),
-    );
+    return _unwrap(() => _dio.delete<T>(
+          path,
+          options: Options(extra: {'authenticated': authenticated}),
+        ));
+  }
+
+  /// Ejecuta [call] y convierte [DioException] → [AppException] del dominio.
+  ///
+  /// El [_ErrorInterceptor] embebe la [AppException] dentro del campo `.error`
+  /// del [DioException]. Este método la extrae y la relanza como [AppException]
+  /// para que los providers puedan capturarla con `on AppException catch (e)`.
+  Future<Response<T>> _unwrap<T>(Future<Response<T>> Function() call) async {
+    try {
+      return await call();
+    } on DioException catch (e) {
+      if (e.error is AppException) throw e.error as AppException;
+      // Fallback por si el interceptor no mapeó el error
+      throw const NetworkException();
+    }
   }
 }
 
