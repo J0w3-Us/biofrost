@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,15 +29,33 @@ abstract class AppRoutes {
 
 // ── GoRouter Provider ───────────────────────────────────────────────────
 
+/// [ChangeNotifier] que re-evalúa el redirect del router cada vez que
+/// [authProvider] cambia de estado.
+///
+/// Sin esto, el redirect usa `ref.read` que solo lee una vez y GoRouter
+/// nunca sabe que el estado cambió → no redirige después del login.
+class _AuthRouterNotifier extends ChangeNotifier {
+  _AuthRouterNotifier(Ref ref) {
+    // Escucha cada cambio de authProvider y notifica al GoRouter
+    ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
+  }
+}
+
 /// Router configurado como Provider para poder leer el estado de auth.
 ///
 /// Guards:
 /// - Rutas protegidas → [AuthStateAuthenticated] con rol Docente.
 /// - Rutas públicas → cualquier estado (incluye Visitante).
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final notifier = _AuthRouterNotifier(ref);
+  ref.onDispose(notifier.dispose);
+
   return GoRouter(
     initialLocation: AppRoutes.showcase,
     debugLogDiagnostics: true,
+    // refreshListenable hace que redirect() se re-evalúe cada vez que
+    // _AuthRouterNotifier llama notifyListeners() (= cada cambio de auth).
+    refreshListenable: notifier,
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final location = state.matchedLocation;
@@ -48,14 +67,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       );
 
       if (isProtected) {
-        // Si no hay sesión de Docente → redirect al login
         final isDocente =
             authState is AuthStateAuthenticated && authState.user.isDocente;
         if (!isDocente) return AppRoutes.login;
       }
 
-      // Si ya autenticado y va al login → redirect al showcase
+      // Mientras carga → no redirigir (splash)
+      if (authState is AuthStateLoading) return null;
+
+      // Autenticado en login → showcase
       if (location == AppRoutes.login && authState is AuthStateAuthenticated) {
+        return AppRoutes.showcase;
+      }
+
+      // Visitante en login → showcase
+      if (location == AppRoutes.login && authState is AuthStateVisitor) {
         return AppRoutes.showcase;
       }
 
