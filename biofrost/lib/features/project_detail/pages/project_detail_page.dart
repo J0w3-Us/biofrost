@@ -84,6 +84,17 @@ class _DetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Fuente 1: campo directo videoUrl del proyecto.
+    // Fuente 2 (fallback): primer bloque canvas de tipo 'video'.
+    final effectiveVideoUrl = project.hasVideo
+        ? project.videoUrl!
+        : project.canvasBlocks
+            .where((b) => (b['type'] as String?) == 'video')
+            .map((b) =>
+                b['content'] as String? ?? b['text'] as String? ?? '')
+            .where((url) => url.isNotEmpty)
+            .firstOrNull;
+
     return CustomScrollView(
       slivers: [
         // ── AppBar compacto (sin hero expandible) ─────────────────────
@@ -137,8 +148,8 @@ class _DetailContent extends StatelessWidget {
               ],
 
               // ── 3. Video Pitch ────────────────────────────────────────
-              if (project.hasVideo) ...[
-                _VideoPitchCard(url: project.videoUrl!),
+              if (effectiveVideoUrl != null) ...[
+                _VideoPitchCard(url: effectiveVideoUrl),
                 const SizedBox(height: AppTheme.sp20),
               ],
 
@@ -167,7 +178,10 @@ class _DetailContent extends StatelessWidget {
               if (project.canvasBlocks.isNotEmpty) ...[
                 _Section(
                   title: 'Canvas del proyecto',
-                  child: _CanvasViewer(blocks: project.canvasBlocks),
+                  child: _CanvasViewer(
+                    blocks: project.canvasBlocks,
+                    skipVideoBlocks: effectiveVideoUrl != null,
+                  ),
                 ),
                 const SizedBox(height: AppTheme.sp20),
               ],
@@ -928,13 +942,21 @@ class _MemberTile extends StatelessWidget {
 /// Canvas en modo solo-lectura.
 /// Muestra cada bloque como una card con tipo y contenido.
 class _CanvasViewer extends StatelessWidget {
-  const _CanvasViewer({required this.blocks});
+  const _CanvasViewer({
+    required this.blocks,
+    this.skipVideoBlocks = false,
+  });
   final List<Map<String, dynamic>> blocks;
+  final bool skipVideoBlocks;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: blocks.map((block) => _CanvasBlock(block)).toList(),
+      children: blocks
+          .where((b) =>
+              !skipVideoBlocks || (b['type'] as String?) != 'video')
+          .map((block) => _CanvasBlock(block))
+          .toList(),
     );
   }
 }
