@@ -12,10 +12,8 @@ import 'package:biofrost/core/router/app_router.dart';
 import 'package:biofrost/core/services/analytics_service.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/core/widgets/ui_kit.dart';
-import 'package:biofrost/features/auth/providers/auth_provider.dart';
-import 'package:biofrost/features/evaluations/pages/evaluation_panel.dart';
-import 'package:biofrost/features/project_detail/widgets/comments_section.dart';
-import 'package:biofrost/features/project_detail/widgets/star_rating_section.dart';
+import 'package:biofrost/features/project_detail/widgets/feedback_section.dart';
+import 'package:biofrost/features/project_detail/widgets/rating_eval_section.dart';
 import 'package:biofrost/features/sharing/sharing.dart';
 import 'package:biofrost/features/showcase/providers/projects_provider.dart';
 
@@ -44,7 +42,6 @@ class _ProjectDetailPageState extends ConsumerState<ProjectDetailPage> {
   @override
   Widget build(BuildContext context) {
     final asyncProject = ref.watch(projectDetailProvider(widget.projectId));
-    final isDocente = ref.watch(isDocenteProvider);
 
     // Registrar analíticas una sola vez al cargar el proyecto exitosamente.
     if (!_analyticsTracked) {
@@ -73,7 +70,6 @@ class _ProjectDetailPageState extends ConsumerState<ProjectDetailPage> {
         ),
         data: (project) => _DetailContent(
           project: project,
-          isDocente: isDocente,
         ),
       ),
     );
@@ -83,9 +79,8 @@ class _ProjectDetailPageState extends ConsumerState<ProjectDetailPage> {
 // ── Contenido completo ────────────────────────────────────────────────────
 
 class _DetailContent extends StatelessWidget {
-  const _DetailContent({required this.project, required this.isDocente});
+  const _DetailContent({required this.project});
   final ProjectDetailReadModel project;
-  final bool isDocente;
 
   @override
   Widget build(BuildContext context) {
@@ -177,27 +172,22 @@ class _DetailContent extends StatelessWidget {
                 const SizedBox(height: AppTheme.sp20),
               ],
 
-              // ── 8. Calificación ───────────────────────────────────────
+              // ── 8. Calificación + evaluación oficial ──────────────────
               const BioDivider(label: 'CALIFICACIÓN'),
               const SizedBox(height: AppTheme.sp16),
-              StarRatingSection(projectId: project.id),
+              RatingEvalSection(
+                projectId: project.id,
+                docenteTitularId: project.docenteId,
+              ),
               const SizedBox(height: AppTheme.sp20),
 
-              // ── 9. Comentarios ────────────────────────────────────────
-              const BioDivider(label: 'COMENTARIOS'),
+              // ── 9. Retroalimentación (comentarios + sugerencias) ──────
+              const BioDivider(label: 'RETROALIMENTACIÓN'),
               const SizedBox(height: AppTheme.sp16),
-              CommentsSection(projectId: project.id),
-              const SizedBox(height: AppTheme.sp20),
-
-              // ── 10. Evaluaciones (solo Docente) ───────────────────────
-              if (isDocente) ...[
-                const BioDivider(label: 'EVALUACIONES'),
-                const SizedBox(height: AppTheme.sp16),
-                EvaluationSection(
-                  projectId: project.id,
-                  docenteTitularId: project.docenteId,
-                ),
-              ],
+              FeedbackSection(
+                projectId: project.id,
+                docenteTitularId: project.docenteId,
+              ),
 
               const SizedBox(height: AppTheme.sp40),
             ]),
