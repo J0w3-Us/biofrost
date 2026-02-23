@@ -12,6 +12,9 @@ class ApiEndpoints {
   // ── Auth ───────────────────────────────────────────────────────────
   static const String login = '/auth/login';
 
+  /// POST /api/auth/register — Registra un nuevo Docente con Firebase UID + perfil.
+  static const String register = '/auth/register';
+
   /// GET /api/users/{uid}
   static String userById(String uid) => '/users/$uid';
 

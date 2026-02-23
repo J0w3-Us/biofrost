@@ -119,6 +119,34 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  /// Limpia un estado de error sin cerrar sesión (para cambio de modo en LoginPage).
+  void clearError() {
+    if (state is AuthStateError) state = AuthStateUnauthenticated();
+  }
+
+  /// Registra un nuevo Docente (Firebase + backend).
+  ///
+  /// Emite [AuthStateLoading] → [AuthStateAuthenticated] o [AuthStateError].
+  Future<void> registerDocente({
+    required String email,
+    required String password,
+    required String nombre,
+    String? apellidoPaterno,
+  }) async {
+    state = AuthStateLoading();
+    try {
+      final user = await _authService.registerDocente(
+        email: email,
+        password: password,
+        nombre: nombre,
+        apellidoPaterno: apellidoPaterno,
+      );
+      state = AuthStateAuthenticated(user);
+    } on AppException catch (e) {
+      state = AuthStateError(e);
+    }
+  }
+
   /// Acceso como visitante (sin Firebase Auth).
   /// Navega directamente al Showcase.
   void continueAsVisitor({String? organizacion}) {

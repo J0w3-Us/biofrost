@@ -65,6 +65,56 @@ class AuthService {
     }
   }
 
+  // ── CQRS Command: Register Docente ───────────────────────────────
+
+  /// Crea una cuenta nueva de Docente en Firebase y la sincroniza con el backend.
+  ///
+  /// Flujo:
+  /// 1. `createUserWithEmailAndPassword` → cuenta en Firebase Auth.
+  /// 2. POST /auth/register → perfil completo en Firestore via backend.
+  /// 3. [_syncWithBackend] → retorna [UserReadModel] listo para la UI.
+  Future<UserReadModel> registerDocente({
+    required String email,
+    required String password,
+    required String nombre,
+    String? apellidoPaterno,
+    String? apellidoMaterno,
+  }) async {
+    try {
+      // 1. Crear en Firebase Auth
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final firebaseUser = credential.user;
+      if (firebaseUser == null) {
+        throw const AuthException(
+            message: 'No se pudo crear la cuenta. Intenta de nuevo.');
+      }
+
+      // 2. Registrar perfil en el backend
+      await _api.post<Map<String, dynamic>>(
+        ApiEndpoints.register,
+        data: {
+          'FirebaseUid': firebaseUser.uid,
+          'Email': email,
+          'Nombre': nombre,
+          'ApellidoPaterno': apellidoPaterno,
+          'ApellidoMaterno': apellidoMaterno,
+          'Rol': 'Docente',
+        },
+        authenticated: true,
+      );
+
+      // 3. Sincronizar y devolver perfil completo
+      return _syncWithBackend(firebaseUser);
+    } on FirebaseAuthException catch (e) {
+      throw _mapRegisterError(e);
+    } on AppException {
+      rethrow;
+    }
+  }
+
   /// Sonda de creación: distingue "contraseña incorrecta" de "cuenta nueva".
   ///
   /// 1. Intenta crear la cuenta temporalmente.
@@ -81,15 +131,15 @@ class AuthService {
       // Usuario nuevo — eliminar la cuenta temporal creada
       await tempCredential.user?.delete();
       throw const AuthException(
-        message: 'No encontramos una cuenta de Docente con este correo. '
-            'Contacta al administrador para registrarte.',
+        message: 'No encontramos una cuenta con este correo. '
+            'Regístrate para crear tu cuenta de Docente.',
+        code: 'no-account',
       );
     } on FirebaseAuthException catch (probe) {
       if (probe.code == 'email-already-in-use') {
         // El usuario existe → la contraseña que ingresó es incorrecta.
         throw const AuthException(
-          message:
-              'Contraseña incorrecta. Verifica tu contraseña e intenta de nuevo.',
+          message: 'Contraseña incorrecta. Verifica e intenta de nuevo.',
         );
       }
       throw _mapFirebaseError(probe);
@@ -211,6 +261,28 @@ class AuthService {
         message: 'No se pudo conectar con el servidor. Verifica tu conexión.',
       );
     }
+  }
+
+  AppException _mapRegisterError(FirebaseAuthException e) {
+    return switch (e.code) {
+      'email-already-in-use' => const AuthException(
+          message: 'Ya existe una cuenta con este correo. Inicia sesión.',
+          code: 'email-already-in-use',
+        ),
+      'invalid-email' => const AuthException(
+          message: 'El formato del correo no es válido.',
+        ),
+      'weak-password' => const AuthException(
+          message: 'La contraseña es muy débil. Usa al menos 6 caracteres.',
+        ),
+      'network-request-failed' => const NetworkException(
+          message: 'Sin conexión. Verifica tu red.',
+        ),
+      _ => AuthException(
+          message: 'No se pudo crear la cuenta: ${e.message ?? e.code}',
+          code: e.code,
+        ),
+    };
   }
 
   AppException _mapFirebaseError(FirebaseAuthException e) {
