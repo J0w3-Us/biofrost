@@ -85,11 +85,25 @@ class _DetailContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Fuente 1: campo directo videoUrl del proyecto.
-    // Fuente 2 (fallback): primer bloque canvas de tipo 'video'.
+    // Fuente 2 (fallback): bloque canvas tipo 'video'.
+    // Fuente 3 (fallback): bloque canvas tipo 'link' con URL de YouTube/Vimeo.
+    bool _isVideoUrl(String url) {
+      final u = url.toLowerCase();
+      return u.contains('youtube.com') ||
+          u.contains('youtu.be') ||
+          u.contains('vimeo.com') ||
+          u.endsWith('.mp4') ||
+          u.endsWith('.webm');
+    }
+
     final effectiveVideoUrl = project.hasVideo
         ? project.videoUrl!
         : project.canvasBlocks
-            .where((b) => (b['type'] as String?) == 'video')
+            .where((b) =>
+                (b['type'] as String?) == 'video' ||
+                ((b['type'] as String?) == 'link' &&
+                    _isVideoUrl(
+                        b['content'] as String? ?? b['text'] as String? ?? '')))
             .map((b) =>
                 b['content'] as String? ?? b['text'] as String? ?? '')
             .where((url) => url.isNotEmpty)
@@ -181,6 +195,7 @@ class _DetailContent extends StatelessWidget {
                   child: _CanvasViewer(
                     blocks: project.canvasBlocks,
                     skipVideoBlocks: effectiveVideoUrl != null,
+                    skipThumbnailUrl: project.thumbnailUrl,
                   ),
                 ),
                 const SizedBox(height: AppTheme.sp20),
@@ -945,16 +960,37 @@ class _CanvasViewer extends StatelessWidget {
   const _CanvasViewer({
     required this.blocks,
     this.skipVideoBlocks = false,
+    this.skipThumbnailUrl,
   });
   final List<Map<String, dynamic>> blocks;
   final bool skipVideoBlocks;
+  final String? skipThumbnailUrl;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: blocks
-          .where((b) =>
-              !skipVideoBlocks || (b['type'] as String?) != 'video')
+          .where((b) {
+            final type = b['type'] as String?;
+            final content =
+                b['content'] as String? ?? b['text'] as String? ?? '';
+            // Omitir bloques de video ya mostrados arriba
+            if (skipVideoBlocks && type == 'video') return false;
+            // Omitir bloques link de YouTube/Vimeo cuando el video ya está arriba
+            if (skipVideoBlocks && type == 'link') {
+              final u = content.toLowerCase();
+              if (u.contains('youtube.com') ||
+                  u.contains('youtu.be') ||
+                  u.contains('vimeo.com') ||
+                  u.endsWith('.mp4') ||
+                  u.endsWith('.webm')) return false;
+            }
+            // Omitir bloques image que duplican el thumbnail del header
+            if (type == 'image' &&
+                skipThumbnailUrl != null &&
+                content == skipThumbnailUrl) return false;
+            return true;
+          })
           .map((block) => _CanvasBlock(block))
           .toList(),
     );
