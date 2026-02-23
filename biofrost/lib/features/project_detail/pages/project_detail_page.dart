@@ -91,37 +91,30 @@ class _DetailContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        // ── AppBar colapsable con imagen del proyecto ─────────────────
+        // ── AppBar compacto (sin hero expandible) ─────────────────────
         SliverAppBar(
-          expandedHeight: project.hasThumbnail ? 240 : 120,
           pinned: true,
+          floating: false,
+          expandedHeight: 0,
           backgroundColor: AppTheme.surface0,
           surfaceTintColor: Colors.transparent,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
             onPressed: () => context.go(AppRoutes.showcase),
           ),
-          flexibleSpace: FlexibleSpaceBar(
-            titlePadding: const EdgeInsets.fromLTRB(
-                AppTheme.sp16, 0, AppTheme.sp16, AppTheme.sp16),
-            title: Text(
-              project.titulo,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-                letterSpacing: -0.5,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          title: Text(
+            project.titulo,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+              letterSpacing: -0.4,
             ),
-            background: project.hasThumbnail
-                ? _ProjectHero(url: project.thumbnailUrl!)
-                : const _ProjectHeroPlaceholder(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           actions: [
-            // ── Botón Compartir — Módulo 5 ────────────────────────
             IconButton(
               icon: const Icon(Icons.ios_share_rounded,
                   color: AppTheme.textSecondary),
@@ -137,55 +130,45 @@ class _DetailContent extends StatelessWidget {
           padding: const EdgeInsets.all(AppTheme.sp16),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              // Meta info (estado, materia, ciclo)
-              _MetaRow(project: project),
+              // ── 1. Header: thumbnail + título + meta ─────────────────
+              _ProjectHeader(project: project),
               const SizedBox(height: AppTheme.sp20),
 
-              // Descripción del proyecto (si existe)
+              // ── 2. Card de descripción ────────────────────────────────
               if (project.descripcion != null &&
                   project.descripcion!.isNotEmpty) ...[
-                _Section(
-                  title: 'Descripción',
-                  child: Text(
-                    project.descripcion!,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      color: AppTheme.textSecondary,
-                      height: 1.6,
-                    ),
-                  ),
-                ),
+                _DescriptionCard(text: project.descripcion!),
                 const SizedBox(height: AppTheme.sp20),
               ],
 
-              // Video Pitch
+              // ── 3. Video Pitch ────────────────────────────────────────
               if (project.hasVideo) ...[
                 _VideoPitchCard(url: project.videoUrl!),
                 const SizedBox(height: AppTheme.sp20),
               ],
 
-              // Links externos (repo + demo)
-              if (project.hasRepo || project.demoUrl != null) ...[
+              // ── 4. Links externos (repo + demo) ───────────────────────
+              if (project.hasRepo ||
+                  (project.demoUrl != null && project.demoUrl!.isNotEmpty)) ...[
                 _ExternalLinksRow(project: project),
                 const SizedBox(height: AppTheme.sp20),
               ],
 
-              // Stack tecnológico
+              // ── 5. Stack tecnológico ──────────────────────────────────
               _Section(
                 title: 'Stack tecnológico',
                 child: _StackGrid(project.stackTecnologico),
               ),
               const SizedBox(height: AppTheme.sp20),
 
-              // Equipo
+              // ── 6. Equipo ─────────────────────────────────────────────
               _Section(
                 title: 'Equipo (${project.memberCount})',
                 child: _TeamList(project.members),
               ),
               const SizedBox(height: AppTheme.sp20),
 
-              // Canvas (read-only)
+              // ── 7. Canvas (read-only) ─────────────────────────────────
               if (project.canvasBlocks.isNotEmpty) ...[
                 _Section(
                   title: 'Canvas del proyecto',
@@ -194,19 +177,19 @@ class _DetailContent extends StatelessWidget {
                 const SizedBox(height: AppTheme.sp20),
               ],
 
-              // Rating de la comunidad (visible para todos)
+              // ── 8. Calificación ───────────────────────────────────────
               const BioDivider(label: 'CALIFICACIÓN'),
               const SizedBox(height: AppTheme.sp16),
               StarRatingSection(projectId: project.id),
               const SizedBox(height: AppTheme.sp20),
 
-              // Comentarios (visibles para todos, escribir requiere auth)
+              // ── 9. Comentarios ────────────────────────────────────────
               const BioDivider(label: 'COMENTARIOS'),
               const SizedBox(height: AppTheme.sp16),
               CommentsSection(projectId: project.id),
               const SizedBox(height: AppTheme.sp20),
 
-              // Evaluaciones (solo Docente)
+              // ── 10. Evaluaciones (solo Docente) ───────────────────────
               if (isDocente) ...[
                 const BioDivider(label: 'EVALUACIONES'),
                 const SizedBox(height: AppTheme.sp16),
@@ -226,33 +209,52 @@ class _DetailContent extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// _ProjectHero — Imagen thumbnail desde Supabase Storage
+// _ProjectHeader — Thumbnail al lado del título + meta chips
 // ══════════════════════════════════════════════════════════════════════════════
 
-class _ProjectHero extends StatelessWidget {
-  const _ProjectHero({required this.url});
-  final String url;
+class _ProjectHeader extends StatelessWidget {
+  const _ProjectHeader({required this.project});
+  final ProjectDetailReadModel project;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CachedNetworkImage(
-          imageUrl: url,
-          fit: BoxFit.cover,
-          placeholder: (_, __) => const _ProjectHeroPlaceholder(),
-          errorWidget: (_, __, ___) => const _ProjectHeroPlaceholder(),
+        // Thumbnail cuadrado
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: project.hasThumbnail
+              ? CachedNetworkImage(
+                  imageUrl: project.thumbnailUrl!,
+                  width: 88,
+                  height: 88,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => _ThumbnailPlaceholder(),
+                  errorWidget: (_, __, ___) => _ThumbnailPlaceholder(),
+                )
+              : _ThumbnailPlaceholder(),
         ),
-        // Gradiente para que el título sea legible sobre la imagen
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, AppTheme.surface0],
-              stops: [0.4, 1.0],
-            ),
+        const SizedBox(width: AppTheme.sp16),
+        // Título + meta
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                project.titulo,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                  height: 1.25,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: AppTheme.sp8),
+              _MetaRow(project: project),
+            ],
           ),
         ),
       ],
@@ -260,25 +262,74 @@ class _ProjectHero extends StatelessWidget {
   }
 }
 
-class _ProjectHeroPlaceholder extends StatelessWidget {
-  const _ProjectHeroPlaceholder();
+class _ThumbnailPlaceholder extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 88,
+      height: 88,
+      decoration: BoxDecoration(
+        color: AppTheme.surface2,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(
+        Icons.folder_copy_outlined,
+        size: 28,
+        color: AppTheme.textDisabled,
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// _DescriptionCard — Card de descripción del proyecto
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _DescriptionCard extends StatelessWidget {
+  const _DescriptionCard({required this.text});
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.surface1, AppTheme.surface2],
-        ),
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppTheme.sp16),
+      decoration: BoxDecoration(
+        color: AppTheme.surface1,
+        borderRadius: AppTheme.bLG,
+        border: Border.all(color: AppTheme.border),
       ),
-      child: const Center(
-        child: Icon(
-          Icons.folder_copy_outlined,
-          size: 40,
-          color: AppTheme.textDisabled,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.description_outlined,
+                  size: 14, color: AppTheme.textDisabled),
+              SizedBox(width: 6),
+              Text(
+                'DESCRIPCIÓN',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textDisabled,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.sp10),
+          Text(
+            text,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: AppTheme.textSecondary,
+              height: 1.65,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -297,69 +348,118 @@ class _VideoPitchCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => _launchUrl(url),
       child: Container(
+        width: double.infinity,
         decoration: BoxDecoration(
           color: AppTheme.surface1,
           borderRadius: AppTheme.bLG,
           border: Border.all(color: AppTheme.border),
         ),
-        padding: const EdgeInsets.all(AppTheme.sp16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail / icono play
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppTheme.surface2,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.play_circle_filled_rounded,
-                color: AppTheme.textPrimary,
-                size: 30,
-              ),
-            ),
-            const SizedBox(width: AppTheme.sp16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Video Pitch',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _displayUrl(url),
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      color: AppTheme.textDisabled,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  const Row(
-                    children: [
-                      Icon(Icons.open_in_new_rounded,
-                          size: 12, color: AppTheme.textDisabled),
-                      SizedBox(width: 4),
-                      Text(
-                        'Reproducir',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 11,
-                          color: AppTheme.textDisabled,
-                          fontWeight: FontWeight.w500,
+            // ── Área de play (aspect ratio 16:9) ──────────────────
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.radiusMD)),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Fondo oscuro degradado
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [AppTheme.surface2, Color(0xFF1A1A1A)],
                         ),
                       ),
-                    ],
+                    ),
+                    // Botón play central
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            width: 1.5),
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
+                    // Label “Tocar para reproducir”
+                    Positioned(
+                      bottom: AppTheme.sp12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.open_in_new_rounded,
+                                size: 11, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text(
+                              'Tocar para reproducir',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 11,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // ── Pie de card ───────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppTheme.sp14, AppTheme.sp12, AppTheme.sp14, AppTheme.sp14),
+              child: Row(
+                children: [
+                  const Icon(Icons.videocam_rounded,
+                      size: 16, color: AppTheme.textDisabled),
+                  const SizedBox(width: AppTheme.sp8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Video Pitch',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          _displayUrl(url),
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            color: AppTheme.textDisabled,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
