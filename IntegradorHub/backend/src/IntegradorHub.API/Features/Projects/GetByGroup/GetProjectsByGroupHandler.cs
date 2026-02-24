@@ -32,7 +32,10 @@ public class GetProjectsByGroupHandler : IRequestHandler<GetProjectsByGroupQuery
             p.LiderId,
             p.MiembrosIds.Count,
             p.ThumbnailUrl,
-            p.DocenteId
+            p.DocenteId,
+            p.EsPublico,
+            p.CreatedAt.ToDateTime(),
+            p.Calificacion
         )).ToList();
     }
 }
@@ -46,5 +49,8 @@ public record ProjectDto(
     string LiderId,
     int MembersCount,
     string? ThumbnailUrl,
-    string? DocenteId
+    string? DocenteId,
+    bool EsPublico,
+    DateTime CreatedAt,
+    double? Calificacion
 );

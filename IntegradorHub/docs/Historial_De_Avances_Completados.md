@@ -32,3 +32,147 @@ Este documento sirve como bitácora y registro de las características, módulos
 
 ---
 *Fin del registro de esta actualización.*
+
+---
+
+## 🎨 Rediseño del Componente y Galería de Proyectos `ShowcaseCard` (Febrero 2026)
+
+### 1. Formato y Relación de Aspecto
+- Se reemplazó la anticuada proporción cuadrada (`aspect-square`) por un inmersivo formato panorámico u horizontal (`aspect-video`) idóneo para aplicaciones de software web y móvil.
+- El contenedor de la tarjeta ahora utiliza un sistema de `max-w-4xl` en el grid de una sola columna, dotando al proyecto de un espacio privilegiado para mostrar sus detalles, similar a un feed profesional.
+
+### 2. Implementación de "Caja de Luz" Interactiva (Lightbox)
+- Se desarrolló e integró un componente de `Lightbox` personalizado cuando el usuario hace un clic en el "Pitch".
+- Este "Lightbox" no secuestra el navegador, sino que genera una elegante capa semitransparente color negro al 95% para oscurecer la galería y centrar la atención.
+- Se incluyeron controles dedicados: un botón de "Cerrar" en la esquina, e indicadores `dots` de paginación para cambiar rápidamente entre video e imágenes sin abandonar el modo inmersivo.
+
+### 3. Fusión Orgánica Multimedia
+- Se actualizaron todos los fondos que colindan con el contenido multimedia (Imágenes y Videos) de `bg-gray-100` y `bg-gray-900` hacia `bg-black` puro.
+- El contenido ahora usa `object-contain` en lugar de `cover`. Con el fondo negro integrado, las diferencias de relación de aspecto de las capturas (algunas más altas, algunas más chatas) se disfrazan mediante elegantes bandas negras que emulan el "letterbox" cinematográfico o panorámico sin mutilar los bordes de la imagen con recortes bruscos.
+
+### 4. Feed de Navegación "Infinita" Orgánica
+- Se detectó un problema de solapamiento jerárquico (`Z-Index`) al momento de hacer scroll donde el componente `Ranking Badge` interactuaba mal con la cabecera del sitio.
+- Se retiró el la propiedad "fija" (`sticky top-0`) de la cabecera `Galería de Proyectos`. Esto dota a la página de "Showcase" de una fluidez natural donde el encabezado principal otorga contexto al aterrizar, pero retrocede y cede el protagonismo al contenido al momento de explorar la lista de estudiantes, emulando la clásica UX de un "feed" de red social.
+
+---
+*Fin del registro de esta actualización.*
+
+---
+
+## 🚀 Mejoras en Modal de Detalles de Proyectos y Sincronización de Datos (Febrero 2026)
+
+### 1. Rediseño del Componente `ProjectDetailsModal` (Estilo Instagram)
+- Se reestructuró el modal de detalles del proyecto adoptando un diseño de dos columnas (Master-Detail).
+- La columna izquierda ahora está dedicada íntegramente a un carrusel multimedia interactivo y centralizado, soportando tanto imágenes como video pitches interactivos.
+- La columna derecha agrupa la información vital: metadatos del equipo, documento del Canvas Editor y la sección de evaluaciones.
+- Se eliminaron pantallas de "Cargando..." artificiales, permitiendo una renderización casi instantánea.
+
+### 2. Carrusel Multimedia Integrado
+- Se reemplazó el antiguo diseño donde las imágenes y videos se apilaban verticalmente formando columnas interminables.
+- Ahora, el carrusel de `ProjectDetailsModal` hereda la misma fluidez y controles del `ShowcaseCard`, incluyendo flechas de navegación y dots indicadores para una UX homogénea en todo IntegradorHub.
+
+### 3. Sincronización del Text-Editor y Resoluciones en Tiempo Real
+- **Misterio del Editor Vacío:** Se detectó un glitch visual donde el texto elaborado en el `CanvasEditor` (descripción del proyecto) no se visualizaba al primer clic en la tarjeta debido a componentes que no se refrescaban al completarse la carga asíncrona (Async data fetching).
+- **La Solución (Frontend):** Se inyectó robustez al ciclo de vida del componente mediante una clave o `key` dinámica. Ahora el modal fuerza a que el editor principal se vuelva a ensamblar desde cero justo cuando la base de datos termina de enviar la información, garantizando que todo el contenido aparezca a la primera sin recargar la página.
+- **Icono de Creador "L":** Se solucionó un error lógico en la prioridad de renderización que causaba que el Avatar del Creador mostrara por error la inicial "L" (de Líder). 
+
+### 4. Inteligencia en Extracción de Textos para Tarjetas (Backend)
+- **El Problema:** Ciertas tarjetas (`ShowcaseCard`) en la galería pública mostraban "Sin descripción disponible" a pesar de que los alumnos sí habían escrito texto en su proyecto. Esto sucedía porque, a nivel estructural, el editor de texto introducía de manera invisible bloques HTML vacíos (`<p><br></p>`).
+- **La Solución (Backend):** Se optimizó la lógica central del endpoint de listado público en C# (`GetPublicProjectsHandler.cs`). Ahora, antes de pre-visualizar el resumen para la galería, el backend realiza una desinfección (limpieza con Expresiones Regulares `Regex`) que ignora las etiquetas HTML muertas y busca el primer bloque que contenga texto real para mostrarlo elegantemente a los visitantes como la verdadera descripción.
+
+---
+*Fin del registro de esta actualización.*
+
+---
+
+## 📊 Rediseño y Optimización de Dashboards (Alumno y Docente) (Febrero 2026)
+
+### 1. Dashboard de Alumnos (Bento Grid)
+- Se desarrolló el nuevo componente `StudentDashboard.jsx` adoptando un diseño moderno estilo "Bento Grid".
+- **Métricas Rápidas:** Se agregaron tarjetas de estadísticas (`StatCard`) para mostrar la fracción de miembros del equipo, el estado de evaluación oficial y un indicador inteligente de "Listo para evaluar" (que calcula si han pasado más de 2 días desde la creación del proyecto).
+- **Rendimiento Visual:** Se integró la librería `recharts` para mostrar una gráfica de línea de tiempo del proyecto (`ProjectTimelineChart`), proyectando de manera gráfica la evolución del estado del proyecto.
+- **Búsqueda de Compañeros:** Se integró el panel lateral `TeamSuggestions` para sugerir proactivamente a los estudiantes sin equipo que se unan al proyecto actual, fomentando la colaboración.
+- **Correcciones:** Se solucionó un bug de carga donde la información de los miembros se mostraba oscilante o vacía en el renderizado inicial al mapear correctamente las propiedades del modelo (incluyendo `calificacion` y `puntosTotales`).
+
+### 2. Dashboard de Docentes (Atención Prioritaria)
+- Se implementó `TeacherDashboard.jsx` diseñado específicamente para resolver las necesidades del flujo de revisión.
+- **KPIs Educativos:** Se despliegan contadores en tiempo real mostrando "Proyectos Totales", "Proyectos Aprobados" (basado en una calificación >= 70) y "Listos para Evaluar".
+- **Filtro de Relevancia:** Se diseñó una sección de "Atención Prioritaria" que aísla visualmente los proyectos críticos. El sistema clasifica automáticamente a un proyecto como "Listo para Evaluar" únicamente si el equipo lo ha marcado como Público (`esPublico === true`) y el docente AÚN no le ha asignado una calificación.
+- **Extensión del Backend C#:** Se reconfiguraron los Data Transfer Objects (DTOs) en `GetProjectsByTeacherHandler.cs` y `GetProjectsByGroupHandler.cs` para transportar los campos `EsPublico`, `CreatedAt` y `Calificacion` hacia el frontend, empoderando los filtros del Dashboard.
+
+### 3. Fluidez y Corrección de Estados
+- **Arreglo del "Efecto Fantasma" en Animaciones:** Se detectó que las métricas (`StatCard`s) a veces no se mostraban tras el inicio de sesión. El problema provenía de un conflicto de estados encadenados heredados en `framer-motion`. Se reprogramó cada componente para gobernar individualmente sus propias animaciones iniciales (`initial` y `animate`), garantizando la aparición garantizada y ultra fluida al recargar o cambiar de datos rápidos.
+
+---
+*Fin del registro de esta actualización.*
+
+---
+
+## ⚡️ Optimización de Galería y Exportación PDF (Febrero 2026)
+
+### 1. Eliminación de Cuello de Botella (N+1) en Galería
+- **Problema:** En `GetPublicProjectsHandler.cs`, el servidor hacía peticiones secuenciales a la base de datos por cada proyecto público para obtener los datos de sus líderes y docentes, causando "lag" al cargar la Galería de Showcase.
+- **Solución:** Se transformó el algoritmo a un procesamiento en paralelo y búsqueda por diccionario usando `Task.WhenAll`. Ahora se extraen los IDs únicos y se lanza una única ráfaga a Firestore, reduciendo masivamente los tiempos de espera y entregando una experiencia de listado de proyectos fluida sin alterar los envíos de datos del Frontend.
+
+### 2. Generación Avanzada de PDF (`ProjectPDFExport`)
+- **Innovación en Cliente:** Se desarrolló un nuevo componente dinámico en React (`ProjectPDFExportButton`) interactuando con las librerías `html2canvas` y `jsPDF`. Permite a los usuarios exportar instantáneamente el contenido pesado de los proyectos como un reporte imprimible multipágina en formato A4 garantizando alta definición de texto e imágenes (scale x2).
+- **Template Neutro y CSS-Safe:** Se diseñó una plantilla estática ciega y blindada contra motores de render conflictivos. Para evadir la limitación impuesta por el nuevo soporte web de colores `oklch()` en Tailwind v4, se anularon sus selectores en este contexto mediante la inyección del tag `<style>` y el uso estricto de colores Hexadecimales (`#FFFFFF`, `#111827`) en formato `inline`, logrando que html2canvas interprete el DOM a la perfección sin colapsar el explorador.
+- **Manejo Robusto de Integración Web:** 
+  - Artefactos SVG complejos (Lucide) se reemplazaron transitoriamente por glifos universales neutros para neutralizar crashes nativos en el dibujo.
+  - Se orquestó la política dinámica de peticiones asíncronas para imágenes Firebase removiendo el tag rígido `crossOrigin` por el flexible flag global `useCORS`.
+  - Se engranó el motor con `allowTaint: true` e inyecciones de prórroga natural (`setTimeout`) para permitir que la ausencia o desconexión de un asset externo no mutile e impida la expedición del documento completo por completo de forma catastrófica.
+  - Los avatares dinámicos (iniciales) se recalcularon usando directivas arcaicas garantizadas como CSS `inline-block` y dimensiones fijas en lugar de Flexbox y auto-alineaciones, destrabando colapsos para renderizar bordes 50% perfectos sin distorsión.
+- **Conectividad QR Bridge:** Se instaló un generador matemático nativo (`react-qr-code`) anclado al header superior. Imprime firmemente y en tiempo real el código escaneable del link público de cada uno de los proyectos. Permitiéndole a examinadores o reclutadores obtener interatividad total del proyecto leyendo un folio en papel en el mundo real hacia un SmartPhone en apenas un instante.
+
+---
+*Fin del registro de esta actualización.*
+
+---
+
+## 📸 Funcionalidad de Foto de Perfil y Mejoras de UI (Febrero 2026)
+
+### 1. Sistema Integral de Avatares (Frontend & Backend)
+- **Subida a Storage:** Se integró un botón "Cámara" en la página de perfil (`ProfilePage.jsx`) que sube de forma asíncrona la imagen a Supabase Storage mediante un endpoint existente.
+- **Persistencia en Base de Datos:** Se creó el endpoint `PUT /api/users/{id}/photo` en `UsersProfileController.cs` apoyado por el handler `UpdateProfilePhotoHandler.cs` para actualizar y persistir de manera resiliente el campo `FotoUrl` en el documento del usuario en Firestore.
+- **Componente Universal `UserAvatar`:** Se desarrolló un componente reutilizable de React robusto. Este componente renderiza de manera segura la foto de perfil o, en caso de que la imagen sea nula o tenga un enlace roto, genera un "fallback" elegante renderizando la inicial del usuario con los colores del sistema. 
+
+### 2. Propagación Global de Avatares
+- Se refactorizaron 5 componentes críticos de la aplicación para desterrar los avatares hardcodeados (inicial manual en un `div`) y utilizar el nuevo componente inteligente `UserAvatar`.
+- **Componentes actualizados:** 
+  - `Sidebar.jsx` (Información del usuario autenticado en la esquina inferior).
+  - `ShowcaseCard.jsx` (Avatar del líder del proyecto en la galería pública). **Nota:** Para esto fue necesario extender el DTO público de proyectos en `GetPublicProjectsHandler.cs` exportando el campo `LiderFotoUrl`.
+  - `ProjectDetailsModal.jsx` (Avatares del creador del proyecto y su equipo).
+  - `TeamPage.jsx` (Directorio de compañeros de clase y miembros de proyecto).
+  - `CreateProjectForm.jsx` (Mural dinámico de estudiantes al formar equipo).
+
+### 3. Correcciones Quirúrgicas de Interfaz (Profile UI)
+- **Formato Circular del Avatar:** Se arregló un glitch visual donde el contenedor dinámico deformaba los avatares haciéndolos con forma de "cuadrados chuecos". Al abstraer a un div estricto `w-44 h-44 shrink-0` y aplicando utilidades a sub-elementos absolutos (como el icono de cámara flotante centrado), se logró el círculo perfecto garantizado de la maqueta original.
+- **Resolución Inteligente de Carrera:** Anteriormente, la tarjeta de Carrera imprimía ciegamente el Hash de Firestore. Ahora, el sistema detecta IDs asimétricos e invoca al vuelo el endpoint maestro `/api/admin/carreras`, interpolando en pantalla el nombre real y legible de la entidad (ej: "Desarrollo y Gestión de Software").
+- **Visualización Condicional de Campos "Vacíos":** Se eliminó el comportamiento de la tarjeta (`InfoCard`) que imprimía textos anti-estéticos como "---" o "No registrado". Ahora la UI evalúa dinámicamente si campos opcionales como `Especialidad` (Docentes), `Organización` (Invitados) o `Teléfono` realmente existen. Si el backend entrega valores nulos, el contenedor simplemente no se crea en pantalla para mantener una tarjeta minimalista y enfocada en lo que sí hay.
+- **Desbordamiento de Texto Controlado:** Se reemplazó la primitiva utilidad `truncate` que ocultaba prematuramente datos valiosos en dispositivos móviles (ej: mutilando direcciones de correo) hacia estrategias semánticas como `break-words` y `break-all` garantizando una lectura multilinea y de adaptabilidad horizontal 100% fluida.
+
+---
+*Fin del registro de esta actualización.*
+
+---
+
+## 🔐 Refinamiento de Autenticación y Mejoras de UI en Dashboard (Febrero 2026)
+
+### 1. Corrección Crítica en Lógica de Login (Frontend)
+- **El Problema:** Al ingresar una contraseña incorrecta para una cuenta existente, Firebase Auth arroja el error genérico `auth/invalid-credential` (por motivos de seguridad anti-enumeración de cuentas). La aplicación asumía erróneamente que cualquier error de este tipo significaba "Usuario No Encontrado" e inmediatamente redirigía al usuario a la pantalla de "Completar Registro".
+- **La Solución:** Se refactorizó la función `handleLogin` en `LoginPage.jsx` implementando un patrón de "Sonda de Creación". Cuando ocurre el error genérico, el sistema intenta ejecutar internamente un `createUserWithEmailAndPassword`:
+  - Si Firebase rechaza la creación con el error `auth/email-already-in-use`, el sistema **comprueba** matemáticamente que el usuario SÍ existe pero introdujo una contraseña incorrecta, mostrando el mensaje adecuado ("Contraseña incorrecta. Verifica tu contraseña e intenta de nuevo.").
+  - Si la creación tiene **éxito**, se comprueba que el usuario era genuinamente nuevo. Acto seguido, la cuenta temporal se elimina silenciosamente y al usuario se le redirige correctamente al formulario para completar su información.
+- Se agregó también manejo explícito para el error `auth/too-many-requests`.
+
+### 2. Pulido de UI en Formularios de Autenticación
+- **Selector de Visibilidad de Contraseña:** Se integró un botón interactivo (ícono de ojo de `lucide-react`) dentro del campo de contraseña en `LoginPage.jsx`, permitiendo a los usuarios revelar u ocultar el texto de su contraseña para mayor comodidad y prevención de errores tipográficos.
+- **Micro-interacciones y Compactación:** Se crearon nuevos estilos CSS-in-JS (`inputCompact`, `selectCompact`, `passwordWrapper`, `passwordToggle`) para reducir los espacios muertos (paddings verticales y fuentes) en el formulario de registro extendido, dándole un aspecto visual mucho más denso y profesional, evitando que el usuario necesite hacer un scroll excesivo.
+
+### 3. Solución de Mapeo de Datos en Dashboard (Alumnos)
+- **El Problema:** La sección "Encuentra a tu equipo" en `StudentDashboard.jsx` mostraba nombres genéricos como "US" e "Ingeniería" para los compañeros de grupo, a pesar de que el backend ya enviaba la información real a través del endpoint `/api/teams/available-students`.
+- **La Solución:** Se actualizó el componente dependiente `TeamSuggestions.jsx` porque estaba intentando extraer variables anticuadas (`student.nombre` y `student.carrera`). Ahora mapea correctamente la estructura del Backend contemporáneo leyendo `student.nombreCompleto` y `student.matricula`. 
+- **Mejora de UI Cortesia:** Aprovechando el rediseño, las tarjetas de estudiantes sugeridos se centraron por completo en su contenedor, y se les añadió la lógica para renderizar la foto de perfil en tiempo real (`student.fotoUrl`) mediante el componente circular, empleando un fallback de iniciales estilizadas si la foto es nula.
+
+---
+*Fin del registro de esta actualización.*

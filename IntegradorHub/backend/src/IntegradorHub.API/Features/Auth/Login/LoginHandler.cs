@@ -29,7 +29,8 @@ public record LoginResponse(
     string? FotoUrl,
     string? Profesion,
     string? EspecialidadDocente,
-    string? Organizacion
+    string? Organizacion,
+    string? CreatedAt
 );
 
 // === HANDLER ===
@@ -137,7 +138,8 @@ public class LoginHandler : IRequestHandler<LoginCommand, LoginResponse>
                     existingUser.FotoUrl,
                     existingUser.Profesion,
                     existingUser.EspecialidadDocente,
-                    existingUser.Organizacion
+                    existingUser.Organizacion,
+                    existingUser.CreatedAt
                 );
             }
 
@@ -183,7 +185,8 @@ public class LoginHandler : IRequestHandler<LoginCommand, LoginResponse>
                 newUser.FotoUrl,
                 newUser.Profesion,
                 newUser.EspecialidadDocente,
-                newUser.Organizacion
+                newUser.Organizacion,
+                newUser.CreatedAt
             );
         }
         catch (Exception ex)

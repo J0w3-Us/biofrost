@@ -58,7 +58,8 @@ export function AuthProvider({ children }) {
                         carreraId: d.carreraId || d.CarreraId || null,
                         profesion: d.profesion || d.Profesion || null,
                         especialidadDocente: d.especialidadDocente || d.EspecialidadDocente || null,
-                        organizacion: d.organizacion || d.Organizacion || null
+                        organizacion: d.organizacion || d.Organizacion || null,
+                        createdAt: d.createdAt || d.CreatedAt || null
                     };
 
                     if (currentFetchId !== fetchIdRef.current) return;
@@ -148,7 +149,8 @@ export function AuthProvider({ children }) {
                 carreraId: d.carreraId || d.CarreraId || null,
                 profesion: d.profesion || d.Profesion || null,
                 especialidadDocente: d.especialidadDocente || d.EspecialidadDocente || null,
-                organizacion: d.organizacion || d.Organizacion || null
+                organizacion: d.organizacion || d.Organizacion || null,
+                createdAt: d.createdAt || d.CreatedAt || null
             };
 
             if (currentFetchId !== fetchIdRef.current) return;

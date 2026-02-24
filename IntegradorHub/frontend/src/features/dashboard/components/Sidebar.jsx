@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { FolderOpen, Users, Calendar, LogOut, LayoutDashboard, Rocket, Trophy } from 'lucide-react';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { UserAvatar } from '../../../components/UserAvatar';
 
 export function Sidebar() {
   const { userData, logout } = useAuth();
@@ -90,9 +91,7 @@ export function Sidebar() {
         to="/profile"
         className="p-4 m-4 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3 transition-all hover:bg-black group"
       >
-        <div className="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-sm border border-slate-700 shadow-lg group-hover:scale-105 transition-transform">
-          {userData?.nombre?.charAt(0).toUpperCase() || 'U'}
-        </div>
+        <UserAvatar src={userData?.fotoUrl} name={userData?.nombre} size="lg" className="border border-slate-700 shadow-lg group-hover:scale-105 transition-transform" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-black text-white truncate tracking-tight">
             {(userData?.nombre && userData?.nombre !== 'Usuario')

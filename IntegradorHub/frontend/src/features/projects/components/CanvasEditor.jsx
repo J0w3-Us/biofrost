@@ -36,7 +36,7 @@ const BLOCK_MENU = [
     { type: BLOCK_TYPES.VIDEO, icon: Video, label: 'Video' }
 ];
 
-export function CanvasEditor({ project, readOnly = false, onSaveStatusChange, ref }) { // Changed: ref is forwarded via props or use forwardRef in parent
+export function CanvasEditor({ project, readOnly = false, mode = 'all', onSaveStatusChange, ref }) {
     // Project Metadata State
     const [title, setTitle] = useState(project?.titulo || '');
     const [videoUrl, setVideoUrl] = useState(project?.videoUrl || null);
@@ -58,6 +58,20 @@ export function CanvasEditor({ project, readOnly = false, onSaveStatusChange, re
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [lightboxItems, setLightboxItems] = useState([]);
+
+    // Sync State with Project Prop (Crucial for when data is fetched after initial mount)
+    useEffect(() => {
+        if (project) {
+            setTitle(project.titulo || '');
+            setVideoUrl(project.videoUrl || null);
+            setBlocks(project.canvas && project.canvas.length > 0 ? project.canvas : [{
+                id: crypto.randomUUID(),
+                type: BLOCK_TYPES.TEXT,
+                content: '',
+                metadata: {}
+            }]);
+        }
+    }, [project]);
 
     // Debounced Save
     useEffect(() => {
@@ -266,7 +280,13 @@ export function CanvasEditor({ project, readOnly = false, onSaveStatusChange, re
         const groupedGroups = [];
         let currentMediaGroup = [];
 
-        blocks.forEach((block) => {
+        const filteredBlocks = blocks.filter(block => {
+            if (mode === 'media') return block.type === BLOCK_TYPES.IMAGE || block.type === BLOCK_TYPES.VIDEO;
+            if (mode === 'text') return block.type !== BLOCK_TYPES.IMAGE && block.type !== BLOCK_TYPES.VIDEO;
+            return true;
+        });
+
+        filteredBlocks.forEach((block) => {
             if (block.type === BLOCK_TYPES.IMAGE || block.type === BLOCK_TYPES.VIDEO) {
                 currentMediaGroup.push(block);
             } else {
@@ -305,84 +325,86 @@ export function CanvasEditor({ project, readOnly = false, onSaveStatusChange, re
     };
 
     return (
-        <div className="max-w-4xl mx-auto py-8 px-4 lg:px-0">
+        <div className={mode === 'all' ? "max-w-4xl mx-auto py-8 px-4 lg:px-0" : "w-full h-full flex flex-col gap-4"}>
             {/* Header: Video Pitch & Title (Editable) */}
-            <div className="mb-12 border-b border-gray-100 pb-8">
-                {/* Title Input */}
-                {readOnly ? null : (
-                    <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder="Título del Proyecto"
-                        className="text-4xl font-bold text-gray-900 placeholder-gray-300 w-full outline-none bg-transparent mb-8"
-                    />
-                )}
+            {(mode === 'all' || mode === 'media' || !readOnly) && (
+                <div className={`mb-12 border-b border-gray-100 pb-8 ${readOnly ? 'mb-0 border-0 pb-0' : ''}`}>
+                    {/* Title Input */}
+                    {readOnly ? null : (
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Título del Proyecto"
+                            className="text-4xl font-bold text-gray-900 placeholder-gray-300 w-full outline-none bg-transparent mb-8"
+                        />
+                    )}
 
-                {/* Video Pitch Section - VISIBLE IN BOTH MODES (Optional) */}
-                {/* User might not want to see it in ReadOnly if empty, handled below */}
-                {(videoUrl || !readOnly) && (
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                            <Video size={20} className="text-blue-600" />
-                            Video Pitch
-                        </h3>
+                    {/* Video Pitch Section - VISIBLE IN BOTH MODES (Optional) */}
+                    {/* User might not want to see it in ReadOnly if empty, handled below */}
+                    {(videoUrl || !readOnly) && mode !== 'text' && (
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <Video size={20} className="text-blue-600" />
+                                Video Pitch
+                            </h3>
 
-                        {!videoUrl ? (
-                            readOnly ? (
-                                <div className="p-8 bg-gray-50 rounded-2xl border border-gray-100 text-center text-gray-400">
-                                    No se ha subido un video pitch.
-                                </div>
-                            ) : (
-                                <div className="relative border-2 border-dashed border-gray-200 rounded-2xl p-8 hover:bg-gray-50 transition-colors group cursor-pointer text-center">
-                                    <input
-                                        type="file"
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                        onChange={(e) => handleVideoPitchUpload(e.target.files[0])}
-                                    />
-                                    <div className="space-y-3">
-                                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                                            <MonitorPlay size={24} />
-                                        </div>
-                                        <div>
-                                            <p className="font-semibold text-gray-900">Haz clic para subir tu Video Pitch</p>
-                                            <p className="text-sm text-gray-500">MP4, WebM hasta 100MB</p>
-                                        </div>
+                            {!videoUrl ? (
+                                readOnly ? (
+                                    <div className="p-8 bg-gray-50 rounded-2xl border border-gray-100 text-center text-gray-400">
+                                        No se ha subido un video pitch.
                                     </div>
-                                    {videoUploadProgress > 0 && (
-                                        <div className="absolute inset-x-8 bottom-4">
-                                            <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-blue-600 transition-all duration-300"
-                                                    style={{ width: `${videoUploadProgress}%` }}
-                                                />
+                                ) : (
+                                    <div className="relative border-2 border-dashed border-gray-200 rounded-2xl p-8 hover:bg-gray-50 transition-colors group cursor-pointer text-center">
+                                        <input
+                                            type="file"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            onChange={(e) => handleVideoPitchUpload(e.target.files[0])}
+                                        />
+                                        <div className="space-y-3">
+                                            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                                                <MonitorPlay size={24} />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-900">Haz clic para subir tu Video Pitch</p>
+                                                <p className="text-sm text-gray-500">MP4, WebM hasta 100MB</p>
                                             </div>
                                         </div>
+                                        {videoUploadProgress > 0 && (
+                                            <div className="absolute inset-x-8 bottom-4">
+                                                <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-blue-600 transition-all duration-300"
+                                                        style={{ width: `${videoUploadProgress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            ) : (
+                                <div className="relative rounded-2xl overflow-hidden bg-black aspect-video group">
+                                    <video
+                                        src={videoUrl}
+                                        className="w-full h-full object-contain"
+                                        controls
+                                    />
+                                    {!readOnly && (
+                                        <button
+                                            onClick={() => {
+                                                if (confirm('¿Eliminar video pitch?')) setVideoUrl(null);
+                                            }}
+                                            className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-lg hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                        >
+                                            <X size={16} />
+                                        </button>
                                     )}
                                 </div>
-                            )
-                        ) : (
-                            <div className="relative rounded-2xl overflow-hidden bg-black aspect-video group">
-                                <video
-                                    src={videoUrl}
-                                    className="w-full h-full object-contain"
-                                    controls
-                                />
-                                {!readOnly && (
-                                    <button
-                                        onClick={() => {
-                                            if (confirm('¿Eliminar video pitch?')) setVideoUrl(null);
-                                        }}
-                                        className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-lg hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Canvas Blocks */}
             <div className="space-y-4">

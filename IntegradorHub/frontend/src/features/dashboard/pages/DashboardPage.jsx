@@ -8,6 +8,8 @@ import api from '../../../lib/axios';
 import { CreateProjectForm } from '../../projects/components/CreateProjectForm';
 import { ProjectCard } from '../../projects/components/ProjectCard';
 import { ProjectDetailsModal } from '../../projects/components/ProjectDetailsModal';
+import { StudentDashboard } from '../components/StudentDashboard';
+import { TeacherDashboard } from '../components/TeacherDashboard';
 
 export function DashboardPage() {
     const { userData } = useAuth();
@@ -42,8 +44,12 @@ export function DashboardPage() {
 
     useEffect(() => {
         if (userData?.rol === 'admin' || userData?.rol === 'SuperAdmin') window.location.href = '/admin';
-        if (userData?.grupoId) {
-            Promise.all([fetchProjects(), fetchGroupDetails(), fetchSuggestions()]);
+        if (userData) {
+            Promise.all([
+                fetchProjects(),
+                userData.grupoId ? fetchGroupDetails() : Promise.resolve(),
+                userData.rol === 'Alumno' ? fetchSuggestions() : Promise.resolve()
+            ]);
         } else {
             setLoading(false);
         }
@@ -72,8 +78,11 @@ export function DashboardPage() {
                             estado: p.estado || p.Estado,
                             stackTecnologico: p.stackTecnologico || p.StackTecnologico || [],
                             liderId: p.liderId || p.LiderId,
+                            miembrosIds: p.miembrosIds || p.MiembrosIds || [],
+                            docenteId: p.docenteId || p.DocenteId,
                             createdAt: p.createdAt || p.CreatedAt,
-                            docenteId: p.docenteId || p.DocenteId
+                            calificacion: p.calificacion || p.Calificacion || null,
+                            puntosTotales: p.puntosTotales || p.PuntosTotales || 0
                         };
                         projectsData = [normalized];
                     }
@@ -81,7 +90,10 @@ export function DashboardPage() {
                     if (e.response?.status !== 404) console.error('Error fetching my project:', e);
                     projectsData = [];
                 }
-            } else {
+            } else if (userData?.rol === 'Docente') {
+                const response = await api.get(`/api/projects/teacher/${userData.userId}`);
+                projectsData = response.data;
+            } else if (userData?.grupoId) {
                 const response = await api.get(`/api/projects/group/${userData.grupoId}`);
                 projectsData = response.data;
             }
@@ -122,67 +134,28 @@ export function DashboardPage() {
                     </p>
                 </div>
 
-                {/* Actions & Filters */}
-                <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-lg font-semibold text-gray-900">Proyectos Activos</h2>
-                        <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full text-xs font-semibold">
-                            {projects.length}
-                        </span>
-                    </div>
-
-                    {userData?.rol === 'Alumno' && (
-                        <button
-                            onClick={() => setShowCreateModal(true)}
-                            className="bg-gray-900 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-gray-800 active:bg-gray-950 transition-all flex items-center gap-2 shadow-sm hover:shadow-md"
-                        >
-                            <Plus size={18} />
-                            <span>Nuevo Proyecto</span>
-                        </button>
-                    )}
-                </div>
-
                 {loading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {[1, 2, 3].map(i => (
                             <div key={i} className="h-64 bg-gray-100 rounded-xl animate-pulse" />
                         ))}
                     </div>
+                ) : userData?.rol === 'Alumno' ? (
+                    <StudentDashboard
+                        userData={userData}
+                        project={projects[0]}
+                        suggestedStudents={suggestedStudents}
+                        onShowCreateModal={() => setShowCreateModal(true)}
+                        onProjectClick={() => setSelectedProject(projects[0])}
+                    />
                 ) : (
-                    <motion.div
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-                    >
-                        {filteredProjects.length > 0 ? (
-                            filteredProjects.map(project => (
-                                <motion.div key={project.id} variants={itemVariants}>
-                                    <ProjectCard
-                                        project={project}
-                                        onClick={() => setSelectedProject(project)}
-                                        layoutId={project.id}
-                                    />
-                                </motion.div>
-                            ))
-                        ) : (
-                            <div className="col-span-full bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
-                                <h3 className="text-xl font-semibold text-gray-900 mb-2">No tienes proyectos activos</h3>
-                                <p className="text-gray-500 max-w-md mx-auto mb-6">
-                                    Comienza creando uno nuevo para colaborar con tu equipo o espera a ser asignado por un docente.
-                                </p>
-                                {userData?.rol === 'Alumno' && (
-                                    <button
-                                        onClick={() => setShowCreateModal(true)}
-                                        className="text-blue-600 font-medium hover:text-blue-700 flex items-center gap-2"
-                                    >
-                                        <Plus size={18} />
-                                        Crear Primer Proyecto
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </motion.div>
+                    <TeacherDashboard
+                        userData={userData}
+                        projects={projects}
+                        groupName={groupName}
+                        searchQuery={searchQuery}
+                        onProjectClick={(project) => setSelectedProject(project)}
+                    />
                 )}
             </main>
 

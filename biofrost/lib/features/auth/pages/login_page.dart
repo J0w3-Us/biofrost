@@ -24,18 +24,18 @@ class _LoginPageState extends ConsumerState<LoginPage>
   _AuthMode _mode = _AuthMode.login;
 
   // ── Claves de formulario ─────────────────────────────────────────────
-  final _loginFormKey    = GlobalKey<FormState>();
+  final _loginFormKey = GlobalKey<FormState>();
   final _registerFormKey = GlobalKey<FormState>();
 
   // ── Controllers: Login ───────────────────────────────────────────────
-  final _emailCtrl    = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
 
   // ── Controllers: Register ────────────────────────────────────────────
-  final _nombreCtrl      = TextEditingController();
-  final _apellidoCtrl    = TextEditingController();
-  final _regEmailCtrl    = TextEditingController();
-  final _regPassCtrl     = TextEditingController();
+  final _nombreCtrl = TextEditingController();
+  final _apellidoCtrl = TextEditingController();
+  final _regEmailCtrl = TextEditingController();
+  final _regPassCtrl = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
 
   late AnimationController _fadeCtrl;
@@ -109,7 +109,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'Ingresa tu correo.';
     if (!value.contains('@')) return 'Ingresa un correo válido.';
-    if (!value.endsWith('@utm.mx')) return 'Usa tu correo institucional (@utm.mx).';
+    if (!value.endsWith('@utm.mx'))
+      return 'Usa tu correo institucional (@utm.mx).';
     return null;
   }
 
@@ -606,7 +607,6 @@ class _RegisterFormState extends State<_RegisterForm> {
     );
   }
 }
-
 
 class _LogoSection extends StatelessWidget {
   @override

@@ -18,9 +18,14 @@ public class GetAvailableStudentsHandler : IRequestHandler<GetAvailableStudentsQ
 
     public async Task<List<StudentDto>> Handle(GetAvailableStudentsQuery request, CancellationToken cancellationToken)
     {
-        // Usamos el mÃ©todo optimizado del repositorio
+        // Usamos el método optimizado del repositorio
         var studentsInGroup = await _userRepository.GetStudentsByGroupAsync(request.GroupId);
         
+        Console.WriteLine($"[DEBUG] GetAvailableStudents: Encontrados {studentsInGroup.Count()} estudiantes en grupo {request.GroupId}.");
+        foreach(var s in studentsInGroup) {
+            Console.WriteLine($"[DEBUG] Estudiante: {s.Nombre} {s.Matricula}, ProjectId: '{s.ProjectId}'");
+        }
+
         var availableStudents = studentsInGroup
             // Regla de Exclusividad: Solo aquellos que NO tienen ProjectId asignado
             .Where(u => string.IsNullOrEmpty(u.ProjectId)) 

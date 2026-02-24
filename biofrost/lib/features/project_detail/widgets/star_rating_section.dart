@@ -208,17 +208,14 @@ class _InteractiveStarsState extends ConsumerState<_InteractiveStars> {
 
   void _submit(int stars) {
     setState(() => _hover = 0);
-    ref
-        .read(starRatingProvider(widget.projectId).notifier)
-        .submitRating(stars);
+    ref.read(starRatingProvider(widget.projectId).notifier).submitRating(stars);
   }
 
   @override
   Widget build(BuildContext context) {
     // Mostrar SnackBar si falla el envío
     ref.listen(starRatingProvider(widget.projectId), (prev, next) {
-      if (next.submitError != null &&
-          prev?.submitError != next.submitError) {
+      if (next.submitError != null && prev?.submitError != next.submitError) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
               'No se pudo enviar la calificación: ${next.submitError!.message}'),
@@ -235,8 +232,9 @@ class _InteractiveStarsState extends ConsumerState<_InteractiveStars> {
 
     final active = _hover > 0 ? _hover : (widget.userStars ?? 0);
     final hasVoted = widget.userStars != null;
-    final previewLabel =
-        _hover > 0 ? _labelFor(_hover) : (hasVoted ? _labelFor(widget.userStars!) : null);
+    final previewLabel = _hover > 0
+        ? _labelFor(_hover)
+        : (hasVoted ? _labelFor(widget.userStars!) : null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,8 +251,7 @@ class _InteractiveStarsState extends ConsumerState<_InteractiveStars> {
               ),
             ),
             if (previewLabel != null) ...[
-              const Text(' · ',
-                  style: TextStyle(color: AppTheme.textDisabled)),
+              const Text(' · ', style: TextStyle(color: AppTheme.textDisabled)),
               AnimatedSwitcher(
                 duration: AppTheme.animFast,
                 child: Text(
@@ -283,8 +280,7 @@ class _InteractiveStarsState extends ConsumerState<_InteractiveStars> {
               : (d) => _submit(_starFromDx(d.localPosition.dx)),
           onPanUpdate: widget.isSubmitting
               ? null
-              : (d) =>
-                  setState(() => _hover = _starFromDx(d.localPosition.dx)),
+              : (d) => setState(() => _hover = _starFromDx(d.localPosition.dx)),
           onPanEnd: widget.isSubmitting
               ? null
               : (_) {
@@ -305,9 +301,7 @@ class _InteractiveStarsState extends ConsumerState<_InteractiveStars> {
                   duration: AppTheme.animFast,
                   curve: Curves.easeOut,
                   child: Icon(
-                    isActive
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
+                    isActive ? Icons.star_rounded : Icons.star_outline_rounded,
                     size: _starSize,
                     color: widget.isSubmitting
                         ? AppTheme.warning.withValues(alpha: 0.5)

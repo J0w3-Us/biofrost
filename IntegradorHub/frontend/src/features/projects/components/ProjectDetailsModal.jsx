@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
-import { X, UserPlus, Trash2, ExternalLink, Calendar, BookOpen, Hash, Users, Activity } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, UserPlus, Trash2, ExternalLink, Calendar, BookOpen, Hash, Users, Activity, Image as ImageIcon, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { UserAvatar } from '../../../components/UserAvatar';
 import api from '../../../lib/axios';
 import { EvaluationPanel } from '../../evaluations/components/EvaluationPanel';
 import { CanvasEditor } from './CanvasEditor';
+import { ProjectPDFExportButton } from './ProjectPDFExport';
 
 export function ProjectDetailsModal({ project: initialProject, onClose, onUpdate }) {
     const { userData } = useAuth();
@@ -34,11 +36,37 @@ export function ProjectDetailsModal({ project: initialProject, onClose, onUpdate
     const [editTitle, setEditTitle] = useState(initialProject.titulo || '');
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // Autocomplete State
+    const [availableStudents, setAvailableStudents] = useState([]);
+    const [fetchingStudents, setFetchingStudents] = useState(false);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // Carousel State
+    const [currentSlide, setCurrentSlide] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const videoRef = useRef(null);
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
     const isLeader = userData?.userId === project?.liderId;
 
     useEffect(() => {
         fetchDetails();
-    }, []);
+        if (project?.grupoId) {
+            fetchAvailableStudents();
+        }
+    }, [project?.grupoId]);
+
+    const fetchAvailableStudents = async () => {
+        setFetchingStudents(true);
+        try {
+            const response = await api.get(`/api/Teams/available-students?groupId=${project.grupoId}`);
+            setAvailableStudents(response.data || []);
+        } catch (err) {
+            console.error('Error fetching available students:', err);
+        } finally {
+            setFetchingStudents(false);
+        }
+    };
 
     const fetchDetails = async () => {
         try {
@@ -155,8 +183,40 @@ export function ProjectDetailsModal({ project: initialProject, onClose, onUpdate
 
     if (!project) return <div>Cargando...</div>;
 
+    // Leader Name Resolution
+    const leader = project?.members?.find(m => m.id === project.liderId);
+    const creadorNombre = leader
+        ? (leader.nombre !== 'Usuario' ? leader.nombre : leader.email)
+        : (project?.liderNombre || 'Desconocido');
+
+    // Gather Media Items
+    const mediaItems = [];
+    if (project.videoUrl) mediaItems.push({ type: 'video', url: project.videoUrl, thumbnail: project.thumbnailUrl });
+    if (project.thumbnailUrl && !mediaItems.some(item => item.url === project.thumbnailUrl)) mediaItems.push({ type: 'image', url: project.thumbnailUrl });
+    if (project.canvas) {
+        const canvasImages = project.canvas
+            .filter(b => b.type === 'image' && b.content && b.content !== project.thumbnailUrl)
+            .map(b => ({ type: 'image', url: b.content }));
+        mediaItems.push(...canvasImages);
+    }
+    if (mediaItems.length === 0) mediaItems.push({ type: 'placeholder' });
+
+    const currentMedia = mediaItems[currentSlide] || mediaItems[0];
+
+    const nextSlide = (e) => {
+        e.stopPropagation();
+        setCurrentSlide((prev) => (prev + 1) % mediaItems.length);
+        setIsPlaying(false);
+    };
+
+    const prevSlide = (e) => {
+        e.stopPropagation();
+        setCurrentSlide((prev) => (prev - 1 + mediaItems.length) % mediaItems.length);
+        setIsPlaying(false);
+    };
+
     return (
-        <div className="flex flex-col h-full bg-[#F0F0F3] p-6 lg:p-8">
+        <div className="flex flex-col h-full bg-[#F0F0F3] p-6 lg:p-8 relative">
             {/* Header */}
             <div className="flex items-start justify-between mb-8 shrink-0">
                 <div>
@@ -187,162 +247,165 @@ export function ProjectDetailsModal({ project: initialProject, onClose, onUpdate
                     </div>
                     <h2 className="text-3xl font-bold text-gray-800 tracking-tight">{project.titulo}</h2>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="neu-icon-btn w-12 h-12 bg-[#F0F0F3] flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors"
-                >
-                    <X size={24} />
-                </button>
+                <div className="flex items-center gap-3">
+                    <ProjectPDFExportButton project={project} creadorNombre={creadorNombre} />
+                    <button
+                        onClick={onClose}
+                        className="neu-icon-btn w-12 h-12 bg-[#F0F0F3] flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors shadow-sm border border-gray-200"
+                    >
+                        <X size={24} />
+                    </button>
+                </div>
             </div>
 
-            {/* Master-Detail Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-y-auto lg:overflow-hidden">
+            {/* Master-Detail Layout (Instagram Style) */}
+            <div className="flex flex-col lg:flex-row flex-1 overflow-hidden bg-white rounded-3xl shadow-sm border border-gray-100 relative z-10">
 
-                {/* Left Column: Metadata & Team (Scrollable) */}
-                <div className="lg:col-span-1 space-y-6 overflow-y-auto pr-2 custom-scrollbar lg:h-full">
-                    {/* Info Card */}
-                    <div className="neu-flat rounded-3xl p-6">
-                        <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
-                            <Hash size={18} className="text-blue-500" /> Detalles
-                        </h3>
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/50">
-                                <span className="text-sm text-gray-500 font-medium flex items-center gap-2">
-                                    <Calendar size={16} /> Fecha
-                                </span>
-                                <span className="text-sm font-bold text-gray-800">
-                                    {(() => {
-                                        if (!project.createdAt) return 'N/A';
-                                        if (typeof project.createdAt === 'object' && project.createdAt.seconds) {
-                                            return new Date(project.createdAt.seconds * 1000).toLocaleDateString();
-                                        }
-                                        const date = new Date(project.createdAt);
-                                        return isNaN(date.getTime()) ? 'Pendiente' : date.toLocaleDateString();
-                                    })()}
+                {/* Left Column: Media Carousel */}
+                <div
+                    className="lg:w-[55%] bg-black flex flex-col relative items-center justify-center p-0 group"
+                    onMouseEnter={() => {
+                        if (currentMedia?.type === 'video') {
+                            setIsPlaying(true);
+                            videoRef.current?.play().catch(() => { });
+                        }
+                    }}
+                    onMouseLeave={() => {
+                        if (currentMedia?.type === 'video') {
+                            setIsPlaying(false);
+                            videoRef.current?.pause();
+                        }
+                    }}
+                >
+                    <div className="w-full h-full relative flex items-center justify-center overflow-hidden">
+                        {currentMedia.type === 'video' ? (
+                            <div
+                                className="w-full h-full relative flex items-center justify-center cursor-pointer bg-black"
+                                title="Clic para ampliar"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsLightboxOpen(true);
+                                }}
+                            >
+                                <video
+                                    ref={videoRef}
+                                    src={currentMedia.url}
+                                    loop
+                                    muted
+                                    playsInline
+                                    className={`w-full h-full object-contain transition-opacity duration-500 ${isPlaying ? 'opacity-100' : 'opacity-60'}`}
+                                />
+
+                                {!isPlaying && (
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="w-20 h-20 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30 shadow-xl transition-all duration-300 group-hover:scale-110">
+                                            <Play fill="white" className="text-white ml-2" size={40} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <span className="absolute bottom-6 left-6 px-3 py-1.5 bg-black/70 backdrop-blur-md rounded-md text-white text-xs font-bold uppercase tracking-wider border border-white/20 shadow-lg pointer-events-none z-10">
+                                    Video Pitch
                                 </span>
                             </div>
-                            <div className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/50">
-                                <span className="text-sm text-gray-500 font-medium">Ciclo</span>
-                                <span className="text-sm font-bold text-gray-800">{project.ciclo}</span>
+                        ) : currentMedia.type === 'image' ? (
+                            <div
+                                className="w-full h-full bg-black flex items-center justify-center cursor-pointer"
+                                title="Clic para ampliar"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsLightboxOpen(true);
+                                }}
+                            >
+                                <img
+                                    src={currentMedia.url}
+                                    alt={project.titulo}
+                                    className="w-full h-full object-contain transition-transform duration-700 hover:scale-105"
+                                />
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Team Card */}
-                    <div className="neu-flat rounded-3xl p-6">
-                        <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
-                            <Users size={18} className="text-blue-500" />
-                            Squad ({project.miembrosIds?.length || 0}/5)
-                        </h3>
-
-                        {/* Add Member */}
-                        {isLeader && (
-                            <form onSubmit={handleAddMember} className="mb-6">
-                                <div className="neu-pressed rounded-2xl p-2 flex items-center gap-2">
-                                    <input
-                                        type="text"
-                                        value={newMemberEmail}
-                                        onChange={(e) => setNewMemberEmail(e.target.value)}
-                                        placeholder="Matrícula..."
-                                        className="bg-transparent flex-1 px-2 outline-none text-sm font-medium text-gray-700 placeholder-gray-400"
-                                        disabled={loading}
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={loading || !newMemberEmail}
-                                        className="w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
-                                    >
-                                        <UserPlus size={16} />
-                                    </button>
-                                </div>
-                                {error && <p className="text-xs text-red-500 mt-2 ml-2 font-medium">{error}</p>}
-                            </form>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center text-gray-500">
+                                <ImageIcon size={64} className="mb-4 opacity-50" />
+                                <span className="text-sm font-medium">Sin contenido visual</span>
+                            </div>
                         )}
 
-                        {/* Members List */}
-                        <div className="space-y-3">
-                            {fetchingDetails ? (
-                                <div className="space-y-3">
-                                    {[1, 2, 3].map(i => <div key={i} className="h-14 bg-gray-200 rounded-2xl animate-pulse" />)}
-                                </div>
-                            ) : (
-                                (project.members || []).length > 0 ? (
-                                    (project.members || []).map((member, idx) => (
-                                        <motion.div
-                                            key={member.id || idx}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: idx * 0.1 }}
-                                            className="neu-flat p-3 rounded-2xl flex items-center justify-between group"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full neu-pressed flex items-center justify-center border-2 border-[#F0F0F3] overflow-hidden bg-white text-gray-700">
-                                                    <span className="text-sm font-bold">{(member.nombre || 'U').charAt(0)}</span>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-gray-800 line-clamp-1">
-                                                        {(member.nombre && member.nombre !== 'Usuario') ? member.nombre : (member.email || 'Miembro')}
-                                                    </p>
-                                                    <p className="text-[10px] uppercase font-bold text-gray-400">{member.rol || 'Miembro'}</p>
-                                                </div>
-                                            </div>
+                        {/* Carousel Controls */}
+                        {mediaItems.length > 1 && (
+                            <>
+                                <button
+                                    onClick={prevSlide}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 backdrop-blur-md text-white rounded-full hover:bg-black/80 hover:scale-110 transition-all opacity-0 group-hover:opacity-100 z-30 shadow-lg cursor-pointer border border-white/10"
+                                >
+                                    <ChevronLeft size={24} />
+                                </button>
+                                <button
+                                    onClick={nextSlide}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 backdrop-blur-md text-white rounded-full hover:bg-black/80 hover:scale-110 transition-all opacity-0 group-hover:opacity-100 z-30 shadow-lg cursor-pointer border border-white/10"
+                                >
+                                    <ChevronRight size={24} />
+                                </button>
 
-                                            {member.id === project.liderId ? (
-                                                <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded-full">Líder</span>
-                                            ) : (
-                                                (isLeader || userData?.userId === member.id) && (
-                                                    <button
-                                                        onClick={() => handleRemoveMember(member.id)}
-                                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                )
-                                            )}
-                                        </motion.div>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-gray-400 text-center py-4">No hay miembros aún.</p>
-                                )
-                            )}
-                        </div>
+                                {/* Dots Indicator */}
+                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-30 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                                    {mediaItems.map((_, idx) => (
+                                        <div
+                                            key={idx}
+                                            className={`transition-all duration-300 rounded-full shadow-sm cursor-pointer ${idx === currentSlide ? 'bg-white w-2.5 h-2.5' : 'bg-white/40 w-2 h-2 hover:bg-white/70'}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setCurrentSlide(idx);
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
-                {/* Right Column: Content */}
-                <div className="lg:col-span-2 flex flex-col gap-6 lg:overflow-hidden">
-
-                    {/* Tabs & Action */}
-                    <div className="flex justify-between items-center bg-[#F0F0F3] z-10">
+                {/* Right Column: Info & Content */}
+                <div className="lg:w-[45%] flex flex-col overflow-hidden bg-white border-l border-gray-100 relative">
+                    {/* Tabs (Sticky Header) */}
+                    <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-white z-10 shrink-0">
                         {/* Tabs */}
-                        <div className="bg-gray-200/50 p-1 rounded-2xl inline-flex overflow-x-auto">
+                        <div className="flex gap-4">
                             <button
                                 onClick={() => setActiveTab('docs')}
-                                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'docs'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                className={`text-sm font-bold transition-all relative pb-1 ${activeTab === 'docs'
+                                    ? 'text-blue-600'
+                                    : 'text-gray-400 hover:text-gray-600'
                                     }`}
                             >
-                                Documentación
+                                Info
+                                {activeTab === 'docs' && (
+                                    <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full"></span>
+                                )}
                             </button>
                             <button
                                 onClick={() => setActiveTab('eval')}
-                                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'eval'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                className={`text-sm font-bold transition-all relative pb-1 ${activeTab === 'eval'
+                                    ? 'text-blue-600'
+                                    : 'text-gray-400 hover:text-gray-600'
                                     }`}
                             >
                                 Evaluación
+                                {activeTab === 'eval' && (
+                                    <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full"></span>
+                                )}
                             </button>
                             {isLeader && (
                                 <button
                                     onClick={() => setActiveTab('settings')}
-                                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'settings'
-                                        ? 'bg-white text-blue-600 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-700'
+                                    className={`text-sm font-bold transition-all relative pb-1 ${activeTab === 'settings'
+                                        ? 'text-blue-600'
+                                        : 'text-gray-400 hover:text-gray-600'
                                         }`}
                                 >
                                     Ajustes
+                                    {activeTab === 'settings' && (
+                                        <span className="absolute bottom-0 left-0 w-full h-[2px] bg-blue-600 rounded-full"></span>
+                                    )}
                                 </button>
                             )}
                         </div>
@@ -352,65 +415,218 @@ export function ProjectDetailsModal({ project: initialProject, onClose, onUpdate
                             {(isLeader || (project.members || []).some(m => m.id === userData.userId)) && activeTab === 'docs' && (
                                 <button
                                     onClick={() => window.open(`/project/${project.id}/editor`, '_self')}
-                                    className="neu-flat px-4 py-2 rounded-xl font-bold text-sm text-gray-700 hover:text-blue-600 active:neu-pressed transition-all flex items-center justify-center gap-2"
+                                    className="px-4 py-1.5 rounded-full font-bold text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 transition-all flex items-center justify-center gap-1.5"
                                 >
-                                    <ExternalLink size={16} />
-                                    Editar
+                                    <ExternalLink size={14} />
+                                    Editar Docs
                                 </button>
                             )}
                         </div>
                     </div>
 
-                    {/* Content Panel */}
-                    <div className="neu-flat rounded-3xl p-6 flex-1 lg:overflow-auto custom-scrollbar relative bg-white">
+                    {/* Scrollable Content */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+
+                        {/* Always visible Info header when on docs tab (like Instagram caption) */}
                         {activeTab === 'docs' && (
-                            <div className="h-full overflow-y-auto w-full">
-                                {fetchingDetails ? (
-                                    <div className="space-y-4">
-                                        <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse"></div>
-                                        <div className="h-4 bg-gray-100 rounded w-1/2 animate-pulse"></div>
-                                        <div className="h-4 bg-gray-100 rounded w-full animate-pulse"></div>
+                            <div className="mb-8 space-y-6">
+                                {/* Leader/Team Meta */}
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center border-2 border-white shadow-sm text-white overflow-hidden">
+                                            <UserAvatar src={leader?.fotoUrl || leader?.FotoUrl} name={creadorNombre} size="md" className="w-full h-full" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-900 leading-tight">
+                                                {creadorNombre}
+                                            </p>
+                                            <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                                                Ciclo {project.ciclo} • {project.materia}
+                                            </p>
+                                        </div>
                                     </div>
-                                ) : (
+                                    <div className="text-xs font-bold text-gray-400">
+                                        {(() => {
+                                            if (!project.createdAt) return 'N/A';
+                                            if (typeof project.createdAt === 'object' && project.createdAt.seconds) {
+                                                const d = new Date(project.createdAt.seconds * 1000);
+                                                return `${d.getDate()} ${d.toLocaleString('es-ES', { month: 'short' }).toUpperCase()}`;
+                                            }
+                                            const date = new Date(project.createdAt);
+                                            return isNaN(date.getTime()) ? 'Pendiente' : `${date.getDate()} ${date.toLocaleString('es-ES', { month: 'short' }).toUpperCase()}`;
+                                        })()}
+                                    </div>
+                                </div>
+
+                                {/* Text Content from Canvas Editor */}
+                                <div className="prose prose-sm max-w-none text-gray-800">
                                     <CanvasEditor
+                                        key={`canvas-editor-${fetchingDetails ? 'loading' : 'loaded'}`}
                                         project={project}
                                         readOnly={true}
+                                        mode="text"
                                     />
-                                )}
+                                </div>
+
+                                {/* Squad Divider */}
+                                <div className="border-t border-gray-100 pt-6 mt-6">
+                                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        <Users size={16} className="text-gray-400" />
+                                        Squad ({project.miembrosIds?.length || 0}/5)
+                                    </h3>
+
+                                    {/* Add Member Combobox */}
+                                    {isLeader && (
+                                        <form onSubmit={handleAddMember} className="mb-4 relative">
+                                            <div className="bg-gray-50 border border-gray-100 rounded-xl p-1.5 flex items-center gap-2">
+                                                <div className="relative flex-1">
+                                                    <input
+                                                        type="text"
+                                                        value={newMemberEmail}
+                                                        onChange={(e) => {
+                                                            setNewMemberEmail(e.target.value);
+                                                            setShowSuggestions(true);
+                                                        }}
+                                                        onFocus={() => setShowSuggestions(true)}
+                                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                                        placeholder="Buscar por matrícula o nombre..."
+                                                        className="w-full bg-transparent px-3 py-1 outline-none text-sm font-medium text-gray-800 placeholder-gray-400"
+                                                        disabled={loading || fetchingStudents}
+                                                    />
+
+                                                    {/* Suggestions Dropdown */}
+                                                    {showSuggestions && newMemberEmail && (
+                                                        <div className="absolute z-50 top-full left-0 right-0 mt-2 bg-white rounded-xl border border-gray-100 shadow-xl overflow-hidden max-h-60 overflow-y-auto custom-scrollbar">
+                                                            {fetchingStudents ? (
+                                                                <div className="p-4 text-center text-xs text-gray-500">Cargando compañeros...</div>
+                                                            ) : availableStudents.filter(s =>
+                                                            (s.nombreCompleto?.toLowerCase().includes(newMemberEmail.toLowerCase()) ||
+                                                                s.matricula?.toLowerCase().includes(newMemberEmail.toLowerCase()) ||
+                                                                s.email?.toLowerCase().includes(newMemberEmail.toLowerCase()))
+                                                            ).length > 0 ? (
+                                                                availableStudents.filter(s =>
+                                                                (s.nombreCompleto?.toLowerCase().includes(newMemberEmail.toLowerCase()) ||
+                                                                    s.matricula?.toLowerCase().includes(newMemberEmail.toLowerCase()) ||
+                                                                    s.email?.toLowerCase().includes(newMemberEmail.toLowerCase()))
+                                                                ).map(student => (
+                                                                    <div
+                                                                        key={student.id}
+                                                                        onClick={() => {
+                                                                            setNewMemberEmail(student.matricula || student.email);
+                                                                            setShowSuggestions(false);
+                                                                        }}
+                                                                        className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
+                                                                    >
+                                                                        <UserAvatar src={student.fotoUrl || student.FotoUrl} name={student.nombreCompleto || 'U'} size="sm" className="bg-gradient-to-tr from-blue-100 to-purple-100 text-blue-600 shrink-0" />
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-sm font-bold text-gray-800 truncate">
+                                                                                {student.nombreCompleto && student.nombreCompleto.trim() !== '' ? student.nombreCompleto : (student.email || 'Estudiante')}
+                                                                            </p>
+                                                                            <p className="text-[11px] font-medium text-gray-400 truncate uppercase mt-0.5">
+                                                                                {student.matricula || student.email}
+                                                                            </p>
+                                                                        </div>
+                                                                        <UserPlus size={14} className="text-gray-300" />
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                <div className="p-4 text-center text-xs text-gray-500">No se encontraron compañeros disponibles.</div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    type="submit"
+                                                    disabled={loading || !newMemberEmail}
+                                                    className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold shadow-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                                >
+                                                    Agregar
+                                                </button>
+                                            </div>
+                                            {error && <p className="text-xs text-red-500 mt-2 ml-2 font-medium">{error}</p>}
+                                        </form>
+                                    )}
+
+                                    {/* Members List */}
+                                    <div className="space-y-2">
+                                        {fetchingDetails ? (
+                                            <div className="space-y-2">
+                                                {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-50 rounded-xl animate-pulse" />)}
+                                            </div>
+                                        ) : (
+                                            (project.members || []).length > 0 ? (
+                                                (project.members || []).map((member, idx) => (
+                                                    <motion.div
+                                                        key={member.id || idx}
+                                                        initial={{ opacity: 0, y: 5 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        transition={{ delay: idx * 0.05 }}
+                                                        className="p-2 rounded-xl hover:bg-gray-50 flex items-center justify-between group transition-colors"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <UserAvatar src={member.fotoUrl || member.FotoUrl} name={member.nombre || 'U'} size="sm" className="bg-gray-200" />
+                                                            <div>
+                                                                <p className="text-sm font-bold text-gray-800 leading-none">
+                                                                    {(member.nombre && member.nombre !== 'Usuario') ? member.nombre : (member.email || 'Miembro')}
+                                                                </p>
+                                                                <p className="text-[10px] uppercase font-bold text-gray-400 mt-1 leading-none">{member.rol || 'Miembro'}</p>
+                                                            </div>
+                                                        </div>
+
+                                                        {member.id === project.liderId ? (
+                                                            <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-2 py-1 rounded-md">Líder</span>
+                                                        ) : (
+                                                            (isLeader || userData?.userId === member.id) && (
+                                                                <button
+                                                                    onClick={() => handleRemoveMember(member.id)}
+                                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            )
+                                                        )}
+                                                    </motion.div>
+                                                ))
+                                            ) : (
+                                                <p className="text-xs text-gray-400 text-center py-2">No hay miembros aún.</p>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
                         {activeTab === 'eval' && (
-                            <>
-                                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2 sticky top-0 bg-white z-10 pb-4 border-b border-gray-100">
-                                    <Activity size={24} className="text-blue-500" />
+                            <div className="animate-fadeIn">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <Activity size={20} className="text-blue-500" />
                                     Evaluación y Rúbrica
                                 </h3>
                                 <EvaluationPanel projectId={project.id} />
-                            </>
+                            </div>
                         )}
 
                         {activeTab === 'settings' && isLeader && (
-                            <div className="space-y-8 animate-fadeIn">
-                                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2 sticky top-0 bg-white z-10 pb-4 border-b border-gray-100">
-                                    <Hash size={24} className="text-blue-500" />
+                            <div className="space-y-6 animate-fadeIn">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <Hash size={20} className="text-blue-500" />
                                     Ajustes del Proyecto
                                 </h3>
 
                                 {/* Edit Title */}
-                                <div className="space-y-3">
-                                    <label className="text-sm font-bold text-gray-600">Título del Proyecto</label>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Título del Proyecto</label>
                                     <div className="flex gap-2">
                                         <input
                                             type="text"
                                             value={editTitle}
                                             onChange={(e) => setEditTitle(e.target.value)}
-                                            className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                                            className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
                                         />
                                         <button
                                             onClick={handleUpdateTitle}
                                             disabled={!editTitle || editTitle === project.titulo}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-bold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                         >
                                             Guardar
                                         </button>
@@ -418,22 +634,22 @@ export function ProjectDetailsModal({ project: initialProject, onClose, onUpdate
                                 </div>
 
                                 {/* Visibility Toggle */}
-                                <div className="space-y-3">
-                                    <label className="text-sm font-bold text-gray-600">Visibilidad</label>
-                                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                <div className="space-y-2 pt-4 border-t border-gray-100">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Visibilidad</label>
+                                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
                                         <div>
-                                            <p className="font-bold text-gray-800">{project.esPublico ? 'Público' : 'Privado'}</p>
-                                            <p className="text-xs text-gray-500 mt-1">
+                                            <p className="text-sm font-bold text-gray-900">{project.esPublico ? 'Público' : 'Privado'}</p>
+                                            <p className="text-[11px] text-gray-500 mt-0.5 max-w-[200px]">
                                                 {project.esPublico
-                                                    ? 'Visible para todos en la galería de proyectos.'
-                                                    : 'Solo visible para los miembros del equipo y profesores.'}
+                                                    ? 'Visible en la galería general.'
+                                                    : 'Solo visible para el equipo y profesores.'}
                                             </p>
                                         </div>
                                         <button
                                             onClick={handleVisibilityToggle}
-                                            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${project.esPublico
-                                                ? 'bg-green-100 text-green-700 border border-green-200'
-                                                : 'bg-gray-200 text-gray-600 border border-gray-300'
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${project.esPublico
+                                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                                                 }`}
                                         >
                                             {project.esPublico ? 'Hacer Privado' : 'Hacer Público'}
@@ -442,21 +658,21 @@ export function ProjectDetailsModal({ project: initialProject, onClose, onUpdate
                                 </div>
 
                                 {/* Danger Zone */}
-                                <div className="pt-8 mt-8 border-t border-red-100">
-                                    <h4 className="text-red-600 font-bold mb-4 flex items-center gap-2">
-                                        <Trash2 size={18} /> Zona de Peligro
+                                <div className="pt-6 mt-6 border-t border-red-100">
+                                    <h4 className="text-xs font-bold text-red-500 uppercase mb-3 flex items-center gap-1.5">
+                                        <Trash2 size={14} /> Zona de Peligro
                                     </h4>
-                                    <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-between">
+                                    <div className="p-3 bg-red-50 rounded-xl border border-red-100 flex flex-col gap-3">
                                         <div>
-                                            <p className="font-bold text-red-700">Eliminar Proyecto</p>
-                                            <p className="text-xs text-red-500/80 mt-1 max-w-sm">
-                                                Esta acción es irreversible. Eliminará todo el contenido, historial y liberará a todos los miembros del equipo.
+                                            <p className="text-sm font-bold text-red-700">Eliminar Proyecto</p>
+                                            <p className="text-[11px] text-red-500/80 mt-0.5">
+                                                Acción irreversible. Eliminará contenido y liberará al equipo.
                                             </p>
                                         </div>
                                         <button
                                             onClick={handleDeleteProject}
                                             disabled={isDeleting}
-                                            className="px-4 py-2 bg-white border-2 border-red-100 text-red-600 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all disabled:opacity-50"
+                                            className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-600 hover:text-white hover:border-red-600 transition-all disabled:opacity-50"
                                         >
                                             {isDeleting ? 'Eliminando...' : 'Eliminar Definitivamente'}
                                         </button>
@@ -467,6 +683,79 @@ export function ProjectDetailsModal({ project: initialProject, onClose, onUpdate
                     </div>
                 </div>
             </div>
+
+            {/* --- LIGHTBOX OVERLAY --- */}
+            {isLightboxOpen && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center backdrop-blur-md"
+                    onClick={() => setIsLightboxOpen(false)}
+                >
+                    <button
+                        className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all z-50 cursor-pointer"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsLightboxOpen(false);
+                        }}
+                    >
+                        <X size={32} />
+                    </button>
+
+                    {mediaItems.length > 1 && (
+                        <>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCurrentSlide((prev) => (prev - 1 + mediaItems.length) % mediaItems.length);
+                                }}
+                                className="absolute left-6 top-1/2 -translate-y-1/2 p-4 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all z-50 cursor-pointer"
+                            >
+                                <ChevronLeft size={36} />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCurrentSlide((prev) => (prev + 1) % mediaItems.length);
+                                }}
+                                className="absolute right-6 top-1/2 -translate-y-1/2 p-4 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all z-50 cursor-pointer"
+                            >
+                                <ChevronRight size={36} />
+                            </button>
+                        </>
+                    )}
+
+                    <div className="relative w-full h-full max-w-[90vw] max-h-[90vh] flex items-center justify-center pointer-events-none">
+                        {currentMedia.type === 'video' ? (
+                            <video
+                                src={currentMedia.url}
+                                controls
+                                autoPlay
+                                className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-lg pointer-events-auto"
+                            />
+                        ) : currentMedia.type === 'image' ? (
+                            <img
+                                src={currentMedia.url}
+                                alt="Contenido Ampliado"
+                                className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-lg pointer-events-auto"
+                            />
+                        ) : null}
+                    </div>
+
+                    {mediaItems.length > 1 && (
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-50 bg-black/50 px-4 py-2 rounded-full border border-white/10">
+                            {mediaItems.map((_, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`w-2 h-2 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white scale-125' : 'bg-white/30 cursor-pointer hover:bg-white/60'}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCurrentSlide(idx);
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

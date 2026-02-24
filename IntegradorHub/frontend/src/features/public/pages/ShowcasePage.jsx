@@ -64,7 +64,7 @@ export function ShowcasePage() {
     return (
         <div className="min-h-screen bg-white font-sans text-gray-900">
             {/* Header / Hero */}
-            <header className="border-b border-gray-100 bg-white sticky top-0 z-10 backdrop-blur-md bg-white/90">
+            <header className="border-b border-gray-100 bg-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                         <div>
@@ -133,7 +133,7 @@ export function ShowcasePage() {
                         ))}
                     </div>
                 ) : filteredProjects.length > 0 ? (
-                    <div className="space-y-8 max-w-5xl mx-auto">
+                    <div className="grid grid-cols-1 gap-16 max-w-4xl mx-auto px-4">
                         {filteredProjects.map(project => (
                             <ShowcaseCard
                                 key={project.id}

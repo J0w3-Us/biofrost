@@ -14,9 +14,11 @@ public record ProjectDto(
     string LiderId,
     int MembersCount,
     string? ThumbnailUrl,
-    string? DocenteId
+    string? DocenteId,
+    bool EsPublico,
+    DateTime CreatedAt,
+    double? Calificacion
 );
-
 // === HANDLER ===
 public class GetProjectsByTeacherHandler : IRequestHandler<GetProjectsByTeacherQuery, List<ProjectDto>>
 {
@@ -39,7 +41,10 @@ public class GetProjectsByTeacherHandler : IRequestHandler<GetProjectsByTeacherQ
             p.LiderId,
             p.MiembrosIds?.Count ?? 0,
             p.ThumbnailUrl,
-            p.DocenteId
+            p.DocenteId,
+            p.EsPublico,
+            p.CreatedAt.ToDateTime(),
+            p.Calificacion
         )).ToList();
     }
 }

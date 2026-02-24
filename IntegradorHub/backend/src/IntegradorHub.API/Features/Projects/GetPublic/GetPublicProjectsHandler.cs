@@ -25,14 +25,38 @@ public class GetPublicProjectsHandler : IRequestHandler<GetPublicProjectsQuery, 
     {
         var projects = await _projectRepository.GetPublicProjectsAsync();
 
+        // Extract unique user IDs for Leaders and Teachers to prevent N+1 queries
+        var userIds = projects.Select(p => p.LiderId)
+                              .Concat(projects.Where(p => !string.IsNullOrEmpty(p.DocenteId)).Select(p => p.DocenteId!))
+                              .Distinct()
+                              .ToList();
+
+        // Fetch users in parallel
+        var userTasks = userIds.Select(id => _userRepository.GetByIdAsync(id));
+        var usersArr = await Task.WhenAll(userTasks);
+        var usersDict = usersArr.Where(u => u != null).ToDictionary(u => u!.Id, u => u);
+
         var result = new List<PublicProjectDto>();
         foreach (var project in projects)
         {
-            var leader = await _userRepository.GetByIdAsync(project.LiderId);
-            var teacher = !string.IsNullOrEmpty(project.DocenteId) ? await _userRepository.GetByIdAsync(project.DocenteId) : null;
+            usersDict.TryGetValue(project.LiderId, out var leader);
             
-            // Extract description from first text block if available
-            var description = project.CanvasBlocks?.FirstOrDefault(b => b.Type == "text")?.Content ?? "";
+            User? teacher = null;
+            if (!string.IsNullOrEmpty(project.DocenteId))
+            {
+                usersDict.TryGetValue(project.DocenteId, out teacher);
+            }
+
+            // Extract description from first non-empty text block if available
+            var description = "";
+            var textBlock = project.CanvasBlocks?.FirstOrDefault(b => 
+                b.Type == "text" && 
+                !string.IsNullOrWhiteSpace(System.Text.RegularExpressions.Regex.Replace(b.Content ?? "", "<[^>]*>", "")));
+            
+            if (textBlock != null)
+            {
+                description = System.Text.RegularExpressions.Regex.Replace(textBlock.Content ?? "", "<[^>]*>", "").Trim();
+            }
 
             result.Add(new PublicProjectDto(
                 project.Id,
@@ -44,7 +68,8 @@ public class GetPublicProjectsHandler : IRequestHandler<GetPublicProjectsQuery, 
                 project.RepositorioUrl,
                 project.DemoUrl,
                 project.VideoUrl,
-                leader?.Nombre ?? "Desconocido",
+                leader?.Nombre ?? "Usuario",
+                leader?.FotoUrl,
                 project.MiembrosIds ?? new List<string>(),
                 teacher?.Nombre,
                 project.Estado,
@@ -74,6 +99,7 @@ public record PublicProjectDto(
     string? DemoUrl,
     string? VideoUrl,
     string LiderNombre,
+    string? LiderFotoUrl,
     List<string> MiembrosIds,
     string? DocenteNombre,
     string Estado,

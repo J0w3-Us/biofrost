@@ -6,7 +6,7 @@ public class FirestoreContext
 {
     private static FirestoreDb? _db;
     private static readonly object _lock = new();
-    
+
     public static FirestoreDb GetDatabase()
     {
         if (_db is null)
@@ -15,29 +15,40 @@ public class FirestoreContext
             {
                 if (_db is null)
                 {
-                    // Set credentials path
-                    var credentialsPath = Path.Combine(
-                        Directory.GetCurrentDirectory(), 
-                        "..", "..", "..",
-                        "integradorhub-dsm-firebase-adminsdk-fbsvc-d89dd8625c.json"
-                    );
-                    
-                    if (File.Exists(credentialsPath))
-                    {
-                        Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath);
-                    }
-                    
-                    var projectId = Environment.GetEnvironmentVariable("FIREBASE_PROJECT_ID") 
+                    var projectId = Environment.GetEnvironmentVariable("FIREBASE_PROJECT_ID")
                                     ?? "integradorhub-dsm";
-                    
+
+                    // ── Opción 1: Variable de entorno (producción / Railway) ──────────
+                    // Configurar en Railway: FIREBASE_CREDENTIALS_JSON = contenido del .json
+                    var credentialsJson = Environment.GetEnvironmentVariable("FIREBASE_CREDENTIALS_JSON");
+                    if (!string.IsNullOrWhiteSpace(credentialsJson))
+                    {
+                        var tempPath = Path.Combine(Path.GetTempPath(), "firebase-credentials.json");
+                        File.WriteAllText(tempPath, credentialsJson);
+                        Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", tempPath);
+                    }
+                    else
+                    {
+                        // ── Opción 2: Archivo local (desarrollo) ──────────────────────
+                        var credentialsPath = Path.Combine(
+                            Directory.GetCurrentDirectory(),
+                            "..", "..", "..",
+                            "integradorhub-dsm-firebase-adminsdk-fbsvc-d89dd8625c.json"
+                        );
+                        if (File.Exists(credentialsPath))
+                        {
+                            Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath);
+                        }
+                    }
+
                     _db = FirestoreDb.Create(projectId);
                 }
             }
         }
-        
+
         return _db;
     }
-    
+
     // Colecciones
     public static CollectionReference Users => GetDatabase().Collection("users");
     public static CollectionReference Projects => GetDatabase().Collection("projects");

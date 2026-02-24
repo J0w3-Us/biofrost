@@ -14,6 +14,7 @@ import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/core/widgets/ui_kit.dart';
 import 'package:biofrost/features/project_detail/widgets/feedback_section.dart';
 import 'package:biofrost/features/project_detail/widgets/rating_eval_section.dart';
+import 'package:biofrost/features/project_detail/widgets/project_video_card.dart';
 import 'package:biofrost/features/sharing/sharing.dart';
 import 'package:biofrost/features/showcase/providers/projects_provider.dart';
 
@@ -84,30 +85,32 @@ class _DetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Fuente 1: campo directo videoUrl del proyecto.
-    // Fuente 2 (fallback): bloque canvas tipo 'video'.
-    // Fuente 3 (fallback): bloque canvas tipo 'link' con URL de YouTube/Vimeo.
+    // Extraer todas las URLs de video del proyecto
     bool _isVideoUrl(String url) {
       final u = url.toLowerCase();
       return u.contains('youtube.com') ||
           u.contains('youtu.be') ||
           u.contains('vimeo.com') ||
           u.endsWith('.mp4') ||
-          u.endsWith('.webm');
+          u.endsWith('.webm') ||
+          u.endsWith('.mov') ||
+          u.contains('storage.googleapis.com') ||
+          u.contains('firebasestorage.googleapis.com');
     }
 
-    final effectiveVideoUrl = project.hasVideo
-        ? project.videoUrl!
-        : project.canvasBlocks
-            .where((b) =>
-                (b['type'] as String?) == 'video' ||
-                ((b['type'] as String?) == 'link' &&
-                    _isVideoUrl(
-                        b['content'] as String? ?? b['text'] as String? ?? '')))
-            .map((b) =>
-                b['content'] as String? ?? b['text'] as String? ?? '')
-            .where((url) => url.isNotEmpty)
-            .firstOrNull;
+    // Video principal del proyecto
+    final primaryVideoUrl = project.hasVideo ? project.videoUrl : null;
+
+    // Videos adicionales del canvas
+    final canvasVideoUrls = project.canvasBlocks
+        .where((b) =>
+            (b['type'] as String?) == 'video' ||
+            ((b['type'] as String?) == 'link' &&
+                _isVideoUrl(
+                    b['content'] as String? ?? b['text'] as String? ?? '')))
+        .map((b) => b['content'] as String? ?? b['text'] as String? ?? '')
+        .where((url) => url.isNotEmpty)
+        .toList();
 
     return CustomScrollView(
       slivers: [
@@ -161,11 +164,13 @@ class _DetailContent extends StatelessWidget {
                 const SizedBox(height: AppTheme.sp20),
               ],
 
-              // ── 3. Video Pitch ────────────────────────────────────────
-              if (effectiveVideoUrl != null) ...[
-                _VideoPitchCard(url: effectiveVideoUrl),
-                const SizedBox(height: AppTheme.sp20),
-              ],
+              // ── 3. Video del Proyecto ─────────────────────────────────
+              ProjectVideoCard(
+                videoUrl: primaryVideoUrl,
+                projectTitle: project.titulo,
+                canvasVideoUrls: canvasVideoUrls,
+              ),
+              const SizedBox(height: AppTheme.sp20),
 
               // ── 4. Links externos (repo + demo) ───────────────────────
               if (project.hasRepo ||
@@ -194,7 +199,8 @@ class _DetailContent extends StatelessWidget {
                   title: 'Canvas del proyecto',
                   child: _CanvasViewer(
                     blocks: project.canvasBlocks,
-                    skipVideoBlocks: effectiveVideoUrl != null,
+                    skipVideoBlocks:
+                        primaryVideoUrl != null || canvasVideoUrls.isNotEmpty,
                     skipThumbnailUrl: project.thumbnailUrl,
                   ),
                 ),

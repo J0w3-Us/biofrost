@@ -201,8 +201,7 @@ class _FeedbackSectionState extends ConsumerState<FeedbackSection> {
         else ...[
           // 3. Comentarios disponibles
           if (commentsState.comments.isNotEmpty)
-            ...commentsState.comments
-                .map((c) => _CommentBubble(comment: c)),
+            ...commentsState.comments.map((c) => _CommentBubble(comment: c)),
 
           // 4. Evaluaciones/sugerencias (solo Docentes)
           if (isDocente) ...[

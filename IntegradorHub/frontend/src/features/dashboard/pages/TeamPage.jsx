@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Mail, User, Plus, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { UserAvatar } from '../../../components/UserAvatar';
 import api from '../../../lib/axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -137,13 +138,7 @@ export function TeamPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {project.members.map(member => (
                                     <div key={member.id} className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
-                                        <div className="shrink-0 w-12 h-12 rounded-full bg-white border-2 border-white shadow-sm flex items-center justify-center font-bold text-gray-600 text-lg overflow-hidden">
-                                            {member.fotoUrl ? (
-                                                <img src={member.fotoUrl} alt={member.nombre} className="w-full h-full object-cover" />
-                                            ) : (
-                                                (member.nombre && member.nombre !== 'Usuario') ? member.nombre.charAt(0) : (member.email?.charAt(0) || '?')
-                                            )}
-                                        </div>
+                                        <UserAvatar src={member.fotoUrl} name={(member.nombre && member.nombre !== 'Usuario') ? member.nombre : member.email} size="md" className="w-12 h-12 border-2 border-white shadow-sm" />
                                         <div className="min-w-0">
                                             <p className="font-bold text-gray-900 truncate">
                                                 {(member.nombre && member.nombre !== 'Usuario') ? member.nombre : (member.email || 'Miembro')}
@@ -226,9 +221,7 @@ export function TeamPage() {
                                 className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group"
                             >
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-lg group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
-                                        {student.nombreCompleto.charAt(0)}
-                                    </div>
+                                    <UserAvatar src={student.fotoUrl} name={student.nombreCompleto} size="md" className="w-12 h-12 group-hover:bg-blue-100" />
                                     <div className="min-w-0">
                                         <h3 className="font-bold text-gray-900 truncate">{student.nombreCompleto}</h3>
                                         <p className="text-xs text-gray-500">{student.matricula}</p>

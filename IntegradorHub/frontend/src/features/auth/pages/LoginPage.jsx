@@ -31,7 +31,7 @@ const checkAdminSetup = async (user) => {
     }
 };
 import api from '../../../lib/axios';
-import { GraduationCap, User, UserCheck, AlertCircle, ArrowLeft, Check } from 'lucide-react';
+import { GraduationCap, User, UserCheck, AlertCircle, ArrowLeft, Check, Eye, EyeOff } from 'lucide-react';
 import { CloudBackground } from '../../../components/ui/CloudBackground';
 
 // Regex para detectar rol
@@ -54,6 +54,7 @@ const extraerMatricula = (email) => {
 export function LoginPage() {
     const { isAuthenticated, loading, rol, refreshUserData } = useAuth();
     const [mode, setMode] = useState('login'); // login, register, register-info
+    const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [nombre, setNombre] = useState('');
@@ -181,27 +182,35 @@ export function LoginPage() {
             await checkAdminSetup(result.user);
         } catch (err) {
             console.error('Login error:', err);
-            if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-                // Smart Auth: Si el usuario no existe (o credenciales inválidas que podrían ser nuevo usuario)
-                // Verificamos si parece ser una contraseña válida para registro
-                if (password.length >= 6) {
-                    // Si es nuevo usuario, lo mandamos a completar perfil
-                    // Pero si es credencial inválida de usuario existente, esto podría ser confuso.
-                    // Firebase unifica "wrong-password" y "user-not-found" en "invalid-credential" a veces por seguridad.
-                    // Sin validación previa de existencia, asumimos intento de registro si la contraseña cumple politicas.
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+                // Firebase combina 'wrong-password' y 'user-not-found' en 'invalid-credential'
+                // Para distinguir: intentamos crear el usuario.
+                //   - Si falla con 'email-already-in-use' → el usuario EXISTE → contraseña incorrecta
+                //   - Si se crea exitosamente → es usuario NUEVO → lo eliminamos y vamos a registro
 
-                    // Nota: Para saber con certeza si existe el email, necesitaríamos fetchSignInMethodsForEmail, 
-                    // pero eso puede estar protegido. 
-                    // Por ahora, asumiremos que si falla el login, intentamos flujo de registro.
-                    // Si el usuario ya existe y puso mal la pass, el "createUser" fallará con 'email-already-in-use'.
-
-                    setMode('register-info');
-                    setError(''); // Limpiamos error visual
-                } else {
+                if (password.length < 6) {
                     setError('La contraseña debe tener al menos 6 caracteres');
+                } else {
+                    try {
+                        // Intentamos crear el usuario como prueba
+                        const tempUser = await createUserWithEmailAndPassword(auth, email, password);
+                        // Si llegamos aquí, el usuario NO existía → es nuevo
+                        // Eliminamos la cuenta temporal (se re-creará en el flujo de registro con datos completos)
+                        await tempUser.user.delete();
+                        setMode('register-info');
+                        setError('');
+                    } catch (createErr) {
+                        if (createErr.code === 'auth/email-already-in-use') {
+                            // El usuario YA existe en Firebase Auth → contraseña incorrecta
+                            setError('Contraseña incorrecta. Verifica tu contraseña e intenta de nuevo.');
+                        } else {
+                            // Otro error al intentar crear
+                            setError('Credenciales inválidas. Si ya tienes cuenta, verifica tu contraseña.');
+                        }
+                    }
                 }
-            } else if (err.code === 'auth/wrong-password') {
-                setError('Contraseña incorrecta');
+            } else if (err.code === 'auth/too-many-requests') {
+                setError('Demasiados intentos fallidos. Espera unos minutos antes de intentar de nuevo.');
             } else {
                 setError(err.message);
             }
@@ -407,15 +416,26 @@ export function LoginPage() {
                             {/* Password */}
                             <div style={styles.inputGroup}>
                                 <label style={styles.label}>Contraseña</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    style={styles.input}
-                                    required
-                                    minLength={6}
-                                />
+                                <div style={styles.passwordWrapper}>
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                        style={{ ...styles.input, paddingRight: '48px' }}
+                                        required
+                                        minLength={6}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        style={styles.passwordToggle}
+                                        tabIndex={-1}
+                                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                    >
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Error */}
@@ -486,7 +506,7 @@ export function LoginPage() {
                     </div>
 
                     {/* Card */}
-                    <div style={styles.card}>
+                    <div style={{ ...styles.card, padding: '24px' }}>
                         {/* Header con botón atrás */}
                         <button
                             type="button"
@@ -500,8 +520,8 @@ export function LoginPage() {
                         <h2 style={styles.cardTitle}>Completa tu Perfil</h2>
                         <p style={styles.cardSubtitle}>
                             {detectedRole === 'Alumno'
-                                ? 'Selecciona tu grupo para continuar'
-                                : 'Selecciona los grupos que atiendes'}
+                                ? 'Verifica y completa tus datos para continuar'
+                                : 'Completa tus datos y selecciona tus grupos'}
                         </p>
 
                         {/* Rol detectado */}
@@ -526,40 +546,40 @@ export function LoginPage() {
                             )}
                         </div>
 
-                        <form onSubmit={handleRegistro} style={styles.form}>
+                        <form onSubmit={handleRegistro} style={{ ...styles.form, gap: '12px' }}>
                             {/* Nombre, Apellido Paterno, Apellido Materno */}
                             <div style={styles.inputGroup}>
-                                <label style={styles.label}>Nombre(s)</label>
+                                <label style={styles.label}>Nombre(s) <span style={{ color: '#ef4444' }}>*</span></label>
                                 <input
                                     type="text"
                                     value={nombre}
                                     onChange={(e) => setNombre(e.target.value)}
                                     placeholder="Juan Carlos"
-                                    style={styles.input}
+                                    style={styles.inputCompact}
                                     required
                                 />
                             </div>
 
                             <div style={styles.inputGroup}>
-                                <label style={styles.label}>Apellido Paterno</label>
+                                <label style={styles.label}>Apellido Paterno <span style={{ color: '#ef4444' }}>*</span></label>
                                 <input
                                     type="text"
                                     value={apellidoPaterno}
                                     onChange={(e) => setApellidoPaterno(e.target.value)}
                                     placeholder="Pérez"
-                                    style={styles.input}
+                                    style={styles.inputCompact}
                                     required
                                 />
                             </div>
 
                             <div style={styles.inputGroup}>
-                                <label style={styles.label}>Apellido Materno</label>
+                                <label style={styles.label}>Apellido Materno <span style={{ color: '#ef4444' }}>*</span></label>
                                 <input
                                     type="text"
                                     value={apellidoMaterno}
                                     onChange={(e) => setApellidoMaterno(e.target.value)}
                                     placeholder="García"
-                                    style={styles.input}
+                                    style={styles.inputCompact}
                                     required
                                 />
                             </div>
@@ -572,7 +592,7 @@ export function LoginPage() {
                                         <select
                                             value={carrera}
                                             onChange={(e) => setCarrera(e.target.value)}
-                                            style={styles.select}
+                                            style={styles.selectCompact}
                                             required
                                         >
                                             <option value="">Selecciona tu carrera...</option>
@@ -587,7 +607,7 @@ export function LoginPage() {
                                         <select
                                             value={grupo}
                                             onChange={(e) => setGrupo(e.target.value)}
-                                            style={styles.select}
+                                            style={styles.selectCompact}
                                             required
                                         >
                                             <option value="">Selecciona tu grupo...</option>
@@ -609,7 +629,7 @@ export function LoginPage() {
                                             value={profesion}
                                             onChange={(e) => setProfesion(e.target.value)}
                                             placeholder="Ej. Ing. en Sistemas Computacionales"
-                                            style={styles.input}
+                                            style={styles.inputCompact}
                                             required
                                         />
                                     </div>
@@ -619,7 +639,7 @@ export function LoginPage() {
                                         <select
                                             value={carreraDocente}
                                             onChange={(e) => setCarreraDocente(e.target.value)}
-                                            style={styles.select}
+                                            style={styles.selectCompact}
                                             required
                                         >
                                             <option value="">Selecciona tu carrera...</option>
@@ -635,7 +655,7 @@ export function LoginPage() {
                                             <select
                                                 value={materiaDocente}
                                                 onChange={(e) => setMateriaDocente(e.target.value)}
-                                                style={styles.select}
+                                                style={styles.selectCompact}
                                                 required
                                                 disabled={loadingMaterias || materiasDisponiblesDocente.length === 0}
                                             >
@@ -824,12 +844,54 @@ const styles = {
         boxSizing: 'border-box',
         backgroundColor: '#fafafa'
     },
+    inputCompact: {
+        width: '100%',
+        padding: '10px 14px',
+        fontSize: '14px',
+        border: '1.5px solid #e5e7eb',
+        borderRadius: '10px',
+        outline: 'none',
+        transition: 'border-color 0.2s, box-shadow 0.2s',
+        boxSizing: 'border-box',
+        backgroundColor: '#fafafa'
+    },
+    passwordWrapper: {
+        position: 'relative',
+        width: '100%'
+    },
+    passwordToggle: {
+        position: 'absolute',
+        right: '12px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: '#9ca3af',
+        padding: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '6px',
+        transition: 'color 0.2s'
+    },
     select: {
         width: '100%',
         padding: '14px 16px',
         fontSize: '15px',
         border: '1.5px solid #e5e7eb',
         borderRadius: '12px',
+        outline: 'none',
+        boxSizing: 'border-box',
+        backgroundColor: '#fafafa',
+        cursor: 'pointer'
+    },
+    selectCompact: {
+        width: '100%',
+        padding: '10px 14px',
+        fontSize: '14px',
+        border: '1.5px solid #e5e7eb',
+        borderRadius: '10px',
         outline: 'none',
         boxSizing: 'border-box',
         backgroundColor: '#fafafa',
@@ -856,13 +918,31 @@ const styles = {
     },
     rolBadgeEmail: {
         fontSize: '13px',
-        color: '#6b7280',
+        color: '#374151',
         margin: '8px 0 0 0'
     },
     rolBadgeMatricula: {
         fontSize: '12px',
+        color: '#4b5563',
+        margin: '4px 0 0 0',
+        fontWeight: '500'
+    },
+    divider: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        margin: '4px 0'
+    },
+    dividerLine: {
+        flex: 1,
+        height: '1px',
+        backgroundColor: '#e5e7eb'
+    },
+    dividerText: {
+        fontSize: '13px',
         color: '#9ca3af',
-        margin: '4px 0 0 0'
+        fontWeight: '500',
+        textTransform: 'lowercase'
     },
     error: {
         display: 'flex',

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Check, ArrowRight, Layout, Video } from 'lucide-react';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { UserAvatar } from '../../../components/UserAvatar';
 import api from '../../../lib/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -383,9 +384,7 @@ export function CreateProjectForm({ onClose, onSuccess }) {
                             <div className="space-y-4">
                                 {/* Leader (Me) */}
                                 <div className="p-5 bg-gray-50 rounded-xl border-2 border-gray-200 flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-                                        {userData?.nombre?.charAt(0) || 'U'}
-                                    </div>
+                                    <UserAvatar src={userData?.fotoUrl} name={userData?.nombre} size="md" className="bg-gray-900" />
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-bold text-gray-900 truncate">{userData?.nombre || 'Usuario'}</p>
                                         <p className="text-xs text-gray-500 mt-1 font-medium">Líder del Proyecto</p>
@@ -398,9 +397,7 @@ export function CreateProjectForm({ onClose, onSuccess }) {
                                     const isSelected = form.miembrosIds.includes(student.id);
                                     return (
                                         <div key={student.id} className="p-5 rounded-xl border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 flex items-center gap-4 transition-all duration-200">
-                                            <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
-                                                {student.nombreCompleto.charAt(0)}
-                                            </div>
+                                            <UserAvatar src={student.fotoUrl} name={student.nombreCompleto} size="md" />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-semibold text-gray-900 truncate">
                                                     {student.nombreCompleto}

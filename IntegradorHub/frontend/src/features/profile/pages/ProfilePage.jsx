@@ -1,21 +1,144 @@
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../auth/hooks/useAuth';
-import { Mail, Phone, MapPin, Calendar, Camera, Edit2, Shield, User as UserIcon, BookOpen, GraduationCap, Briefcase, Building } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { UserAvatar } from '../../../components/UserAvatar';
+import { Mail, Phone, MapPin, Calendar, Camera, Edit2, Shield, User as UserIcon, BookOpen, GraduationCap, Briefcase, Building, Loader2 } from 'lucide-react';
+import api from '../../../lib/axios';
 
 export function ProfilePage() {
-    const { userData } = useAuth();
+    const { userData, refreshUserData } = useAuth();
+    const fileInputRef = useRef(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     if (!userData) return null;
 
     // Higher quality name resolution for the header
     const hasRealName = userData.nombre && userData.nombre !== 'Usuario';
-    const hasSurnames = userData.apellidoPaterno || userData.apellidoMaterno;
 
     const displayNombre = hasRealName ? userData.nombre.replace(/^\d+\s+/, '') : (userData.email ? userData.email.split('@')[0] : 'Usuario');
     const fullName = `${displayNombre} ${userData.apellidoPaterno || ''} ${userData.apellidoMaterno || ''}`.trim();
 
+    const [carreraNombre, setCarreraNombre] = useState('Cargando...');
+
+    useEffect(() => {
+        if (!userData) return;
+        const rawId = userData.carreraId;
+        if (!rawId) {
+            setCarreraNombre('Sin carrera');
+            return;
+        }
+
+        const carreraNamesAbbr = {
+            'IDGS': 'Ing. Desarrollo y Gestión de Software',
+            'IDGSI': 'Ing. Desarrollo y Gestión de Software',
+            'IMT': 'Ing. Mecatrónica',
+            'IER': 'Ing. Energías Renovables',
+            'IMTC': 'Ing. Mecatrónica',
+            'IERE': 'Ing. Energías Renovables',
+            'IIND': 'Ing. Industrial',
+            'IGAE': 'Ing. Gestión y Automatización',
+        };
+
+        const upper = rawId.toUpperCase();
+        if (carreraNamesAbbr[upper]) {
+            setCarreraNombre(carreraNamesAbbr[upper]);
+            return;
+        }
+
+        // Si parece un ID generado por Firebase (largo > 10) consultamos el backend
+        if (rawId.length > 10) {
+            api.get('/api/admin/carreras')
+                .then(res => {
+                    const carrera = res.data?.find(c => c.id === rawId);
+                    if (carrera) {
+                        setCarreraNombre(carrera.nombre);
+                    } else {
+                        setCarreraNombre('Carrera asignada');
+                    }
+                })
+                .catch(() => setCarreraNombre('Carrera asignada'));
+        } else {
+            setCarreraNombre(rawId);
+        }
+    }, [userData?.carreraId]);
+
+    // --- "Miembro desde" dynamic formatting ---
+    const memberSince = (() => {
+        if (!userData.createdAt) return 'Fecha no disponible';
+        try {
+            const date = new Date(userData.createdAt);
+            if (isNaN(date.getTime())) return 'Fecha no disponible';
+            const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            return `${months[date.getMonth()]} ${date.getFullYear()}`;
+        } catch {
+            return 'Fecha no disponible';
+        }
+    })();
+
+    // --- Profile Photo Upload ---
+    const handlePhotoUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate
+        if (!file.type.startsWith('image/')) {
+            return alert('Por favor, selecciona una imagen (JPG, PNG, WebP).');
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            return alert('La imagen no puede pesar más de 5MB.');
+        }
+
+        setUploading(true);
+        setUploadProgress(0);
+
+        try {
+            // Step 1: Upload to Supabase Storage via existing endpoint
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadResponse = await api.post('/api/storage/upload?folder=avatars', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                onUploadProgress: (progressEvent) => {
+                    const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setUploadProgress(percent);
+                }
+            });
+
+            const photoUrl = uploadResponse.data.url;
+            if (!photoUrl) throw new Error('No URL returned from storage');
+
+            // Step 2: Persist URL to Firestore via new endpoint
+            await api.put(`/api/users/${userData.userId}/photo`, {
+                fotoUrl: photoUrl
+            });
+
+            // Step 3: Refresh user data globally so all components update
+            await refreshUserData();
+
+        } catch (error) {
+            console.error('Error uploading profile photo:', error);
+            const msg = error.response?.data?.error || error.message || 'Error al subir la foto';
+            alert(`Error: ${msg}`);
+        } finally {
+            setUploading(false);
+            setUploadProgress(0);
+            // Reset file input
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
     return (
         <div className="flex flex-col gap-8 pb-10">
+            {/* Hidden File Input */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handlePhotoUpload}
+            />
+
             {/* Main Neumorphic Card */}
             <div className="neu-flat rounded-[3rem] overflow-hidden relative">
 
@@ -32,22 +155,40 @@ export function ProfilePage() {
                 <div className="px-8 sm:px-12 lg:px-16 pb-12 relative">
                     <div className="flex flex-col md:flex-row gap-6 items-start -mt-20">
 
-                        {/* Avatar */}
-                        <div className="relative group">
-                            <div className="w-40 h-40 rounded-full neu-flat p-2 bg-[#e0e5ec]">
-                                <div className="w-full h-full rounded-full overflow-hidden relative shadow-inner">
-                                    {userData.fotoUrl ? (
-                                        <img src={userData.fotoUrl} alt="Profile" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full bg-slate-900 flex items-center justify-center text-4xl font-black text-white uppercase tracking-tighter shadow-inner">
-                                            {userData.nombre?.charAt(0)}
-                                        </div>
-                                    )}
-                                </div>
+                        {/* Avatar with upload */}
+                        <div className="relative group shrink-0">
+                            <div className="w-44 h-44 rounded-full neu-flat p-2 bg-[#e0e5ec] flex items-center justify-center">
+                                <UserAvatar
+                                    src={userData.fotoUrl}
+                                    name={userData.nombre}
+                                    size="xl"
+                                    className="shadow-inner"
+                                />
                             </div>
-                            <button className="absolute bottom-2 right-2 neu-icon-btn w-10 h-10 bg-[#e0e5ec] text-slate-900 shadow-lg border border-white/40 hover:bg-white transition-all">
-                                <Camera size={18} />
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploading}
+                                className="absolute bottom-2 right-2 rounded-full flex items-center justify-center w-10 h-10 bg-[#e0e5ec] text-slate-900 shadow-lg border border-white/40 hover:bg-white transition-all disabled:opacity-50"
+                            >
+                                {uploading ? (
+                                    <Loader2 size={18} className="animate-spin" />
+                                ) : (
+                                    <Camera size={18} />
+                                )}
                             </button>
+
+                            {/* Upload progress ring */}
+                            {uploading && uploadProgress > 0 && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <svg className="w-44 h-44 rotate-[-90deg]" viewBox="0 0 44 44">
+                                        <circle cx="22" cy="22" r="20" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                                        <circle cx="22" cy="22" r="20" fill="none" stroke="#3b82f6" strokeWidth="2.5"
+                                            strokeDasharray={`${uploadProgress * 1.256}, 125.6`} strokeLinecap="round"
+                                            className="transition-all duration-300"
+                                        />
+                                    </svg>
+                                </div>
+                            )}
                         </div>
 
                         {/* Name & Role */}
@@ -91,28 +232,28 @@ export function ProfilePage() {
                             {/* Academic/Professional Fields based on Role */}
                             {userData.rol === 'Alumno' && (
                                 <>
-                                    <InfoCard icon={<UserIcon size={20} />} label="Matrícula" value={userData.matricula} color="text-slate-900" />
-                                    <InfoCard icon={<GraduationCap size={20} />} label="Carrera" value={userData.carreraId?.toUpperCase()} color="text-slate-900" />
-                                    <InfoCard icon={<BookOpen size={20} />} label="Grupo" value={userData.grupoNombre || 'Sin grupo'} color="text-slate-900" />
+                                    {userData.matricula && <InfoCard icon={<UserIcon size={20} />} label="Matrícula" value={userData.matricula} color="text-slate-900" />}
+                                    {userData.carreraId && <InfoCard icon={<GraduationCap size={20} />} label="Carrera" value={carreraNombre} color="text-slate-900" />}
+                                    {userData.grupoNombre && <InfoCard icon={<BookOpen size={20} />} label="Grupo" value={userData.grupoNombre} color="text-slate-900" />}
                                 </>
                             )}
 
                             {userData.rol === 'Docente' && (
                                 <>
-                                    <InfoCard icon={<Briefcase size={20} />} label="Profesión" value={userData.profesion} color="text-slate-900" />
-                                    <InfoCard icon={<Shield size={20} />} label="Especialidad" value={userData.especialidadDocente} color="text-slate-900" />
+                                    {userData.profesion && <InfoCard icon={<Briefcase size={20} />} label="Profesión" value={userData.profesion} color="text-slate-900" />}
+                                    {userData.especialidadDocente && <InfoCard icon={<Shield size={20} />} label="Especialidad" value={userData.especialidadDocente} color="text-slate-900" />}
                                 </>
                             )}
 
-                            {userData.rol === 'Invitado' && (
+                            {userData.rol === 'Invitado' && userData.organizacion && (
                                 <InfoCard icon={<Building size={20} />} label="Organización" value={userData.organizacion} color="text-slate-900" />
                             )}
 
                             {/* Common Fields */}
-                            <InfoCard icon={<Mail size={20} />} label="Correo Electrónico" value={userData.email} color="text-slate-900" />
-                            <InfoCard icon={<Phone size={20} />} label="Teléfono" value={userData.telefono || 'No registrado'} color="text-slate-900" />
-                            <InfoCard icon={<MapPin size={20} />} label="Ubicación" value={userData.direccion || 'Mérida, Yucatán'} color="text-slate-900" />
-                            <InfoCard icon={<Calendar size={20} />} label="Miembro desde" value="Enero 2024" color="text-slate-900" />
+                            <InfoCard icon={<Mail size={20} />} label="Correo Electrónico" value={userData.email} color="text-slate-900" fullWidth />
+                            {userData.telefono && <InfoCard icon={<Phone size={20} />} label="Teléfono" value={userData.telefono} color="text-slate-900" />}
+                            {userData.direccion && <InfoCard icon={<MapPin size={20} />} label="Ubicación" value={userData.direccion} color="text-slate-900" />}
+                            <InfoCard icon={<Calendar size={20} />} label="Miembro desde" value={memberSince} color="text-slate-900" />
                         </div>
                     </div>
                 </div>
@@ -130,7 +271,7 @@ export function ProfilePage() {
                         </div>
                         <h3 className="text-xl font-bold text-slate-900 tracking-tight">Perfil Premium</h3>
                         <p className="text-slate-500 mt-2 text-sm leading-relaxed">
-                            Tu perfil está verificado y sincronizado, no olvides acompletar tus datos.
+                            Tu perfil está verificado y sincronizado, no olvides completar tus datos.
                         </p>
                     </div>
                 </div>
@@ -139,16 +280,16 @@ export function ProfilePage() {
     );
 }
 
-function InfoCard({ icon, label, value, color }) {
+function InfoCard({ icon, label, value, color, fullWidth = false }) {
     return (
-        <div className="neu-pressed rounded-2xl p-4 flex items-center gap-4 group transition-all">
-            <div className={`w-12 h-12 rounded-full neu-flat flex items-center justify-center ${color} bg-white border border-slate-100`}>
+        <div className={`neu-pressed rounded-2xl p-4 flex items-center gap-4 group transition-all ${fullWidth ? 'md:col-span-2' : ''}`}>
+            <div className={`w-12 h-12 rounded-full neu-flat flex items-center justify-center shrink-0 ${color} bg-white border border-slate-100`}>
                 {icon}
             </div>
-            <div className="overflow-hidden">
+            <div className="min-w-0 flex-1">
                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{label}</p>
-                <p className="text-slate-900 font-bold truncate" title={value}>
-                    {value || '---'}
+                <p className={`text-slate-900 font-bold ${fullWidth ? 'break-all text-sm' : 'break-words text-sm'}`} title={value}>
+                    {value}
                 </p>
             </div>
         </div>

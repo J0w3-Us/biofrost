@@ -92,9 +92,13 @@ public class AddMemberHandler : IRequestHandler<AddMemberCommand, AddMemberRespo
         // 7. Validar que no esté en OTRO proyecto de la misma materia/ciclo (TODO: Requiere query compleja, pendiente para v2)
         // Por ahora confiamos en la buena fe o validación visual.
 
-        // 8. Agregar miembro y guardar
+        // 8. Agregar miembro y guardar cambios en el proyecto
         project.MiembrosIds.Add(memberToAdd.Id);
         await _projectRepository.UpdateAsync(project);
+        
+        // 9. Actualizar el perfil del usuario para asociarle este proyecto
+        memberToAdd.ProjectId = project.Id;
+        await _userRepository.UpdateAsync(memberToAdd);
 
         return new AddMemberResponse(true, "Miembro agregado exitosamente", memberToAdd.Id, memberToAdd.Nombre);
     }
