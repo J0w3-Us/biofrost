@@ -20,41 +20,41 @@ abstract class AppTheme {
   // ── Paleta ──────────────────────────────────────────────────────────
 
   /// Colores primitivos del sistema.
-  static const black      = Color(0xFF000000);
-  static const white      = Color(0xFFFFFFFF);
+  static const black = Color(0xFF000000);
+  static const white = Color(0xFFFFFFFF);
 
   // Superficies
-  static const surface0   = Color(0xFF000000); // fondo base
-  static const surface1   = Color(0xFF0D0D0D); // tarjetas
-  static const surface2   = Color(0xFF1A1A1A); // inputs / chips
-  static const surface3   = Color(0xFF262626); // hover / focus
+  static const surface0 = Color(0xFF000000); // fondo base
+  static const surface1 = Color(0xFF0D0D0D); // tarjetas
+  static const surface2 = Color(0xFF1A1A1A); // inputs / chips
+  static const surface3 = Color(0xFF262626); // hover / focus
 
   // Bordes
-  static const border     = Color(0xFF2E2E2E);
-  static const borderFocus= Color(0xFF545454);
+  static const border = Color(0xFF2E2E2E);
+  static const borderFocus = Color(0xFF545454);
 
   // Texto
-  static const textPrimary   = Color(0xFFFFFFFF);
+  static const textPrimary = Color(0xFFFFFFFF);
   static const textSecondary = Color(0xFFAAAAAA);
-  static const textDisabled  = Color(0xFF555555);
-  static const textInverse   = Color(0xFF000000);
+  static const textDisabled = Color(0xFF555555);
+  static const textInverse = Color(0xFF000000);
 
   // Estados
-  static const success = Color(0xFF34C759);   // verde iOS
-  static const error   = Color(0xFFFF453A);   // rojo iOS
-  static const warning = Color(0xFFFF9F0A);   // naranja iOS
-  static const info    = Color(0xFF0A84FF);   // azul iOS
+  static const success = Color(0xFF34C759); // verde iOS
+  static const error = Color(0xFFFF453A); // rojo iOS
+  static const warning = Color(0xFFFF9F0A); // naranja iOS
+  static const info = Color(0xFF0A84FF); // azul iOS
 
   // Badges de estado de proyecto
   static const badgeGreen = Color(0xFF1A3D2B);
   static const badgeGreenText = Color(0xFF34C759);
-  static const badgeBlue  = Color(0xFF0D2137);
+  static const badgeBlue = Color(0xFF0D2137);
   static const badgeBlueText = Color(0xFF0A84FF);
-  static const badgeGray  = Color(0xFF1F1F1F);
+  static const badgeGray = Color(0xFF1F1F1F);
   static const badgeGrayText = Color(0xFF888888);
 
   // Podio
-  static const podiumGold   = Color(0xFFD4AF37);
+  static const podiumGold = Color(0xFFD4AF37);
   static const podiumSilver = Color(0xFF9E9E9E);
   static const podiumBronze = Color(0xFFCD7F32);
 
@@ -67,19 +67,19 @@ abstract class AppTheme {
   static const double radiusXL = 20;
   static const double radiusFull = 999;
 
-  static BorderRadius get bXS   => BorderRadius.circular(radiusXS);
-  static BorderRadius get bSM   => BorderRadius.circular(radiusSM);
-  static BorderRadius get bMD   => BorderRadius.circular(radiusMD);
-  static BorderRadius get bLG   => BorderRadius.circular(radiusLG);
-  static BorderRadius get bXL   => BorderRadius.circular(radiusXL);
+  static BorderRadius get bXS => BorderRadius.circular(radiusXS);
+  static BorderRadius get bSM => BorderRadius.circular(radiusSM);
+  static BorderRadius get bMD => BorderRadius.circular(radiusMD);
+  static BorderRadius get bLG => BorderRadius.circular(radiusLG);
+  static BorderRadius get bXL => BorderRadius.circular(radiusXL);
   static BorderRadius get bFull => BorderRadius.circular(radiusFull);
 
   // ── Espaciado ────────────────────────────────────────────────────────
 
-  static const double sp2  = 2;
-  static const double sp4  = 4;
-  static const double sp6  = 6;
-  static const double sp8  = 8;
+  static const double sp2 = 2;
+  static const double sp4 = 4;
+  static const double sp6 = 6;
+  static const double sp8 = 8;
   static const double sp10 = 10;
   static const double sp12 = 12;
   static const double sp14 = 14;
@@ -166,12 +166,12 @@ abstract class AppTheme {
 
   // ── Durations de animación ───────────────────────────────────────────
 
-  static const Duration animFast   = Duration(milliseconds: 150);
+  static const Duration animFast = Duration(milliseconds: 150);
   static const Duration animNormal = Duration(milliseconds: 250);
-  static const Duration animSlow   = Duration(milliseconds: 400);
+  static const Duration animSlow = Duration(milliseconds: 400);
 
   static const Curve curveDefault = Curves.easeInOut;
-  static const Curve curveSpring  = Curves.easeOutCubic;
+  static const Curve curveSpring = Curves.easeOutCubic;
 
   // ── ThemeData ────────────────────────────────────────────────────────
 
@@ -415,6 +415,53 @@ abstract class AppTheme {
           color: textSecondary,
         ),
       ),
+    );
+  }
+
+  static ThemeData light() {
+    const colorScheme = ColorScheme(
+      brightness: Brightness.light,
+      primary: black,
+      onPrimary: white,
+      primaryContainer: Color(0xFFF2F2F2),
+      onPrimaryContainer: black,
+      secondary: textSecondary,
+      onSecondary: white,
+      secondaryContainer: Color(0xFFF6F6F6),
+      onSecondaryContainer: black,
+      tertiary: textDisabled,
+      onTertiary: white,
+      surface: Color(0xFFFFFFFF),
+      onSurface: black,
+      error: error,
+      onError: white,
+      outline: Color(0xFFE0E0E0),
+      outlineVariant: Color(0xFFBDBDBD),
+      shadow: Colors.black,
+      scrim: Colors.black54,
+      inverseSurface: black,
+      onInverseSurface: white,
+      inversePrimary: white,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: Color(0xFFF8F8F8),
+      fontFamily: 'Inter',
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFFF8F8F8),
+        foregroundColor: black,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+      ),
+      textTheme: _buildTextTheme(),
     );
   }
 

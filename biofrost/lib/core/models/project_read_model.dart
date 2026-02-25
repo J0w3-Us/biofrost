@@ -28,6 +28,7 @@ class ProjectReadModel extends Equatable {
     this.votantes,
     this.esPublico = false,
     this.videoUrl,
+    this.videoFilePath,
     this.createdAt,
     this.grupoId,
     this.thumbnailUrl,
@@ -58,6 +59,7 @@ class ProjectReadModel extends Equatable {
   final Map<String, int>? votantes;
   final bool esPublico;
   final String? videoUrl;
+  final String? videoFilePath;
   final DateTime? createdAt;
   final String? grupoId;
   final String? thumbnailUrl;
@@ -105,6 +107,8 @@ class ProjectReadModel extends Equatable {
       votantes: _votantesMap(json, ['votantes', 'Votantes']),
       esPublico: _bool(json, ['esPublico', 'EsPublico']),
       videoUrl: _str(json, ['videoUrl', 'VideoUrl']),
+      videoFilePath:
+          _str(json, ['videoFilePath', 'VideoFilePath', 'videoFilePath']),
       createdAt: _datetime(json, ['createdAt', 'CreatedAt']),
       grupoId: _str(json, ['grupoId', 'GrupoId']),
       thumbnailUrl: _str(json, ['thumbnailUrl', 'ThumbnailUrl']),
@@ -129,6 +133,7 @@ class ProjectReadModel extends Equatable {
         'votantes': votantes,
         'esPublico': esPublico,
         'videoUrl': videoUrl,
+        'videoFilePath': videoFilePath,
         'createdAt': createdAt?.toIso8601String(),
         'grupoId': grupoId,
         'thumbnailUrl': thumbnailUrl,
@@ -170,6 +175,7 @@ class ProjectDetailReadModel extends Equatable {
     this.votantes,
     this.esPublico = false,
     this.videoUrl,
+    this.videoFilePath,
     this.repositorioUrl,
     this.createdAt,
     this.grupoId,
@@ -200,6 +206,7 @@ class ProjectDetailReadModel extends Equatable {
   final Map<String, int>? votantes;
   final bool esPublico;
   final String? videoUrl;
+  final String? videoFilePath;
   final String? repositorioUrl;
   final DateTime? createdAt;
   final String? grupoId;
@@ -244,6 +251,7 @@ class ProjectDetailReadModel extends Equatable {
       votantes: _votantesMap(raw, ['votantes']),
       esPublico: raw['esPublico'] as bool? ?? false,
       videoUrl: raw['videoUrl'] as String?,
+      videoFilePath: raw['videoFilePath'] as String?,
       repositorioUrl: raw['repositorioUrl'] as String?,
       createdAt: _datetime(raw, ['createdAt']),
       grupoId: raw['grupoId'] as String?,
@@ -272,6 +280,7 @@ class ProjectDetailReadModel extends Equatable {
         'votantes': votantes,
         'esPublico': esPublico,
         'videoUrl': videoUrl,
+        'videoFilePath': videoFilePath,
         'repositorioUrl': repositorioUrl,
         'createdAt': createdAt?.toIso8601String(),
         'grupoId': grupoId,
@@ -432,5 +441,9 @@ List<ProjectMemberReadModel> _parseMembers(dynamic raw) {
 
 List<Map<String, dynamic>> _parseBlocks(dynamic raw) {
   if (raw is! List) return [];
-  return raw.whereType<Map<String, dynamic>>().toList();
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map(
+          _normalizeKeys) // .NET serializa en PascalCase → normalizar a camelCase
+      .toList();
 }

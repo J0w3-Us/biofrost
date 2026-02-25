@@ -114,6 +114,7 @@ class ShowcaseNotifier extends Notifier<ShowcaseState> {
       final projects = await _repo.getPublicProjects(
         forceRefresh: forceRefresh,
       );
+      // Derive stacks from the already-loaded project list
       final stacks = _repo.extractUniqueStacks(projects);
       final cachedAt =
           ref.read(cacheServiceProvider).getSavedAt(CacheService.keyProjects);
@@ -263,7 +264,8 @@ final rankingProvider = NotifierProvider<RankingNotifier, RankingState>(
 final projectDetailProvider = FutureProvider.autoDispose
     .family<ProjectDetailReadModel, String>((ref, projectId) async {
   final repo = ref.watch(projectRepositoryProvider);
-  return repo.getProjectById(projectId);
+  // forceRefresh=true para evitar caché con canvas blocks en PascalCase
+  return repo.getProjectById(projectId, forceRefresh: true);
 });
 
 // ── Proyectos del grupo del Docente ───────────────────────────────────────
@@ -340,7 +342,68 @@ final docenteProjectsProvider =
     NotifierProvider<DocenteProjectsNotifier, DocenteProjectsState>(
   DocenteProjectsNotifier.new,
 );
+// ── Proyectos del Docente por teacher endpoint ────────────────────────────────
 
+/// Estado de los proyectos supervisados por el Docente.
+class TeacherProjectsState {
+  const TeacherProjectsState({
+    this.projects = const [],
+    this.isLoading = false,
+    this.error,
+  });
+
+  final List<ProjectReadModel> projects;
+  final bool isLoading;
+  final AppException? error;
+
+  bool get hasError => error != null;
+  bool get isEmpty => !isLoading && projects.isEmpty;
+
+  TeacherProjectsState copyWith({
+    List<ProjectReadModel>? projects,
+    bool? isLoading,
+    AppException? error,
+    bool clearError = false,
+  }) {
+    return TeacherProjectsState(
+      projects: projects ?? this.projects,
+      isLoading: isLoading ?? this.isLoading,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+}
+
+/// Carga los proyectos donde el Docente es titular.
+/// Patrón Stale-While-Revalidate: TTL 3 min, forceRefresh disponible.
+class TeacherProjectsNotifier
+    extends FamilyNotifier<TeacherProjectsState, String> {
+  @override
+  TeacherProjectsState build(String teacherId) {
+    Future.microtask(() => load(teacherId));
+    return const TeacherProjectsState(isLoading: true);
+  }
+
+  ProjectRepository get _repo => ref.read(projectRepositoryProvider);
+
+  Future<void> load(String teacherId, {bool forceRefresh = false}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final projects = await _repo.getProjectsByTeacher(
+        teacherId,
+        forceRefresh: forceRefresh,
+      );
+      state = state.copyWith(projects: projects, isLoading: false);
+    } on AppException catch (e) {
+      state = state.copyWith(isLoading: false, error: e);
+    }
+  }
+}
+
+/// Provider de proyectos supervisados por el Docente, parametrizado por teacherId.
+final teacherProjectsProvider = NotifierProvider.family<TeacherProjectsNotifier,
+    TeacherProjectsState, String>(
+  TeacherProjectsNotifier.new,
+);
 // ── Proyectos vistos recientemente ──────────────────────────────────────────
 
 /// IDs de los proyectos vistos recientemente (más reciente primero).

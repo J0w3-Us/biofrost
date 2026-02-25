@@ -8,19 +8,16 @@ import 'package:biofrost/features/profile/pages/profile_page.dart';
 import 'package:biofrost/features/project_detail/pages/project_detail_page.dart';
 import 'package:biofrost/features/ranking/pages/ranking_page.dart';
 import 'package:biofrost/features/showcase/pages/showcase_page.dart';
-import 'package:biofrost/features/test/pages/test_login_page.dart';
 
 /// Rutas de la aplicación — constantes para evitar strings sueltos.
 abstract class AppRoutes {
   // Públicas (Visitante + Docente)
   static const String splash = '/';
   static const String login = '/login';
-  static const String testLogin = '/test-login';
   static const String showcase = '/showcase';
   static const String ranking = '/ranking';
   static const String projectDetail = '/project/:id';
 
-  // Protegidas (Solo Docente)
   static const String profile = '/profile';
 
   /// Genera la ruta de detalle con el ID ya inyectado.
@@ -75,7 +72,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Mientras carga → no redirigir (splash)
       if (authState is AuthStateLoading) return null;
 
-      // Autenticado en login → showcase
+      // Docente autenticado en login → ir a showcase (panel consolidado)
       if (location == AppRoutes.login && authState is AuthStateAuthenticated) {
         return AppRoutes.showcase;
       }
@@ -93,13 +90,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.login,
         name: 'login',
         builder: (context, state) => const LoginPage(),
-      ),
-
-      // Test login page (dev only)
-      GoRoute(
-        path: AppRoutes.testLogin,
-        name: 'testLogin',
-        builder: (context, state) => const TestLoginPage(),
       ),
 
       // ── Showcase (público) ────────────────────────────────────────
@@ -125,7 +115,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return ProjectDetailPage(projectId: projectId);
         },
       ),
-
+      // Docente projects page removed; routes consolidated to showcase/profile.
       // ── Perfil (solo Docente) ─────────────────────────────────────
       GoRoute(
         path: AppRoutes.profile,

@@ -203,41 +203,27 @@ class EvaluationRepository {
 
   // ── CQRS Query: Historial por docente ─────────────────────────────
 
-  /// Obtiene todas las evaluaciones emitidas por un docente, ordenadas por
-  /// fecha descendente.
+  /// Obtiene evaluaciones emitidas por un docente filtrando desde el
+  /// caché local de evaluaciones ya cargadas por proyecto.
   ///
-  /// Endpoint: GET /api/evaluations/docente/{docenteId}
-  ///
-  /// Fallback offline: devuelve caché obsoleto si la red falla.
+  /// NOTA: el backend no expone un endpoint /evaluations/docente/{id}.
+  /// Esta implementación filtra desde el caché en memoria.
+  /// Si el caché está vacío (primer uso), devuelve lista vacía.
   Future<List<EvaluationReadModel>> getEvaluationsByDocente(
     String docenteId, {
     bool forceRefresh = false,
   }) async {
-    const cacheKey = '__docente__';
-    final key = '$cacheKey$docenteId';
-    final cached = _cache[key];
+    final all = _cache.values
+        .expand((entry) => entry.data)
+        .where((e) => e.docenteId == docenteId)
+        .toList();
 
-    if (!forceRefresh && cached != null && !cached.isExpired) {
-      return cached.data;
-    }
+    all.sort(
+      (a, b) =>
+          (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)),
+    );
 
-    try {
-      final response = await _api.get<List<dynamic>>(
-        ApiEndpoints.evaluationsByDocente(docenteId),
-      );
-
-      final evaluations = _parseList(response.data ?? []);
-      evaluations.sort(
-        (a, b) =>
-            (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)),
-      );
-
-      _cache[key] = _CacheEntry(evaluations);
-      return evaluations;
-    } catch (_) {
-      if (cached != null) return cached.data;
-      return [];
-    }
+    return all;
   }
 
   // ── Cache invalidation ─────────────────────────────────────────────

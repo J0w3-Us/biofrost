@@ -555,40 +555,16 @@ class _BioSkeletonState extends State<BioSkeleton>
 
 // ── Skeleton de ProjectCard ───────────────────────────────────────────────
 
+/// Skeleton placeholder para la tarjeta de proyecto (grid 2 columnas).
 class ProjectCardSkeleton extends StatelessWidget {
   const ProjectCardSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: AppTheme.cardDecoration,
-      padding: const EdgeInsets.all(AppTheme.sp16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              BioSkeleton(width: 60, height: 18, borderRadius: AppTheme.bFull),
-              const BioSkeleton(width: 80, height: 14),
-            ],
-          ),
-          const SizedBox(height: AppTheme.sp12),
-          const BioSkeleton(width: double.infinity, height: 20),
-          const SizedBox(height: AppTheme.sp8),
-          const BioSkeleton(width: 160, height: 14),
-          const SizedBox(height: AppTheme.sp16),
-          Row(
-            children: [
-              BioSkeleton(width: 56, height: 26, borderRadius: AppTheme.bFull),
-              const SizedBox(width: AppTheme.sp8),
-              BioSkeleton(width: 56, height: 26, borderRadius: AppTheme.bFull),
-              const SizedBox(width: AppTheme.sp8),
-              BioSkeleton(width: 56, height: 26, borderRadius: AppTheme.bFull),
-            ],
-          ),
-        ],
-      ),
+    return BioSkeleton(
+      width: double.infinity,
+      height: double.infinity,
+      borderRadius: AppTheme.bLG,
     );
   }
 }

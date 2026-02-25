@@ -3,6 +3,19 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/features/project_detail/widgets/video_player_widget.dart';
+import 'package:biofrost/core/config/app_config.dart';
+
+String _resolveSupabaseUrl(String url) {
+  if (url.trim().isEmpty) return url;
+  final u = url.trim();
+  if (u.startsWith('http://') || u.startsWith('https://')) return u;
+  var path = u;
+  if (path.startsWith('/')) path = path.substring(1);
+  if (path.startsWith('${AppConfig.supabaseBucket}/')) {
+    path = path.substring(AppConfig.supabaseBucket.length + 1);
+  }
+  return AppConfig.storageUrl(path);
+}
 
 /// Card dedicado exclusivamente para mostrar videos del proyecto
 /// Siempre se muestra, incluso sin videos para mejor UX
@@ -113,7 +126,7 @@ class ProjectVideoCard extends StatelessWidget {
                 bottom: Radius.circular(AppTheme.radiusMD),
               ),
               child: VideoPlayerWidget(
-                videoUrl: primaryVideoUrl!,
+                videoUrl: _resolveSupabaseUrl(primaryVideoUrl!),
                 autoPlay: false,
                 showControls: true,
                 aspectRatio: 16 / 9,
@@ -216,7 +229,6 @@ class ProjectVideoCard extends StatelessWidget {
 
   String _getVideoInfo() {
     if (primaryVideoUrl == null) return '';
-
     final url = primaryVideoUrl!.toLowerCase();
     if (url.contains('youtube.com') || url.contains('youtu.be')) {
       return 'Video de YouTube • Toca para reproducir';
@@ -276,13 +288,13 @@ class _AdditionalVideoTile extends StatelessWidget {
   String _getDisplayName(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null) return 'Video adicional';
-
     final host = uri.host.replaceFirst('www.', '');
     return host.isNotEmpty ? 'Video • $host' : 'Video adicional';
   }
 
   Future<void> _openVideo(String url) async {
-    final uri = Uri.tryParse(url);
+    final resolved = _resolveSupabaseUrl(url);
+    final uri = Uri.tryParse(resolved);
     if (uri != null && await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }

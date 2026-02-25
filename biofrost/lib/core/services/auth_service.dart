@@ -205,6 +205,32 @@ class AuthService {
     }
   }
 
+  /// Actualiza el DisplayName del usuario en Firebase y sincroniza con el backend.
+  ///
+  /// 1. Actualiza `displayName` en Firebase Auth.
+  /// 2. Llama a [_syncWithBackend] vía [refreshUserData] para propagar cambios.
+  Future<void> updateDisplayName({
+    required String uid,
+    required String displayName,
+  }) async {
+    try {
+      final current = _auth.currentUser;
+      if (current == null || current.uid != uid) {
+        throw const AuthException(message: 'Sesión no encontrada.');
+      }
+
+      await current.updateDisplayName(displayName);
+      // Refrescar datos sincronizando con el backend
+      await refreshUserData(uid);
+    } on FirebaseAuthException catch (e) {
+      throw _mapFirebaseError(e);
+    } on AppException {
+      rethrow;
+    } catch (e) {
+      throw ServerException(message: 'No se pudo actualizar el nombre: $e');
+    }
+  }
+
   // ── CQRS Command: Sign Out ─────────────────────────────────────────
 
   /// Cierra la sesión de Firebase.

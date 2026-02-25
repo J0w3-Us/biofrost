@@ -6,12 +6,16 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:biofrost/core/models/evaluation_read_model.dart';
+import 'package:biofrost/core/models/project_read_model.dart';
 import 'package:biofrost/core/models/user_read_model.dart';
 import 'package:biofrost/core/router/app_router.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/core/widgets/ui_kit.dart';
 import 'package:biofrost/features/auth/providers/auth_provider.dart';
+import 'package:biofrost/core/providers/theme_provider.dart';
+import 'package:biofrost/features/profile/providers/profile_projects_provider.dart';
 import 'package:biofrost/features/evaluations/providers/evaluation_provider.dart';
+import 'package:biofrost/features/showcase/providers/projects_provider.dart';
 
 /// Pantalla de perfil del Docente.
 ///
@@ -60,20 +64,132 @@ class ProfilePage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Banner (si existe) ─────────────────────────────────────────
+            Builder(
+              builder: (ctx) {
+                final projectsAsync =
+                    ref.watch(userProjectsProvider(user.userId));
+                return projectsAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (projects) {
+                    final thumb = projects.isNotEmpty
+                        ? projects.first.thumbnailUrl
+                        : null;
+                    if (thumb == null || thumb.isEmpty)
+                      return const SizedBox.shrink();
+                    return Container(
+                      height: 140,
+                      margin: const EdgeInsets.only(bottom: AppTheme.sp16),
+                      decoration: BoxDecoration(
+                        borderRadius: AppTheme.bMD,
+                        image: DecorationImage(
+                          image: NetworkImage(thumb),
+                          fit: BoxFit.cover,
+                          colorFilter: ColorFilter.mode(
+                            Colors.black.withOpacity(0.35),
+                            BlendMode.darken,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+
             // ── Header de perfil ───────────────────────────────────────────
             _ProfileHeader(
               user: user,
             ),
 
             // ── KPIs de Docente ────────────────────────────────────
-            if (user.isDocente) ...[  
+            if (user.isDocente) ...[
               const SizedBox(height: AppTheme.sp24),
               _DocenteKPIs(docenteId: user.userId),
+            ],
+
+            // ── Proyectos supervisados (solo Docente) ────────────────────────
+            if (user.isDocente) ...[
+              const SizedBox(height: AppTheme.sp20),
+              const _SectionTitle('Proyectos supervisados'),
+              const SizedBox(height: AppTheme.sp12),
+              _TeacherProjectsList(docenteId: user.userId),
             ],
 
             const SizedBox(height: AppTheme.sp24),
             const BioDivider(),
             const SizedBox(height: AppTheme.sp24),
+
+            // ── Sección única plegable: Información + Configuración ───────
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('Información y configuración'),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppTheme.sp12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Mostrar stacks tecnológicos del usuario (si existen)
+                      Builder(builder: (ctx) {
+                        final projectsAsync =
+                            ref.watch(userProjectsProvider(user.userId));
+                        return projectsAsync.when(
+                          loading: () => const SizedBox.shrink(),
+                          error: (_, __) => const SizedBox.shrink(),
+                          data: (projects) {
+                            final stacks = <String>{};
+                            for (final p in projects) {
+                              stacks.addAll(p.stackTecnologico);
+                            }
+                            if (stacks.isEmpty) return const SizedBox.shrink();
+                            return Wrap(
+                              spacing: AppTheme.sp8,
+                              runSpacing: AppTheme.sp8,
+                              children:
+                                  stacks.map((s) => BioChip(label: s)).toList(),
+                            );
+                          },
+                        );
+                      }),
+
+                      const SizedBox(height: AppTheme.sp12),
+
+                      // Tema
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Tema'),
+                          Consumer(builder: (ctx, r, _) {
+                            final mode = r.watch(themeProvider);
+                            final isLight = mode == AppThemeModeOption.light;
+                            return Switch(
+                              value: isLight,
+                              onChanged: (v) => r
+                                  .read(themeProvider.notifier)
+                                  .setMode(v
+                                      ? AppThemeModeOption.light
+                                      : AppThemeModeOption.dark),
+                            );
+                          }),
+                        ],
+                      ),
+
+                      const SizedBox(height: AppTheme.sp12),
+
+                      // Editar datos personales
+                      BioButton(
+                        label: 'Editar datos personales',
+                        onTap: () => _openEditDialog(context, ref, user),
+                        variant: BioButtonVariant.ghost,
+                        icon: Icons.edit_outlined,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
 
             // ── Datos académicos ──────────────────────────────────────
             if (user.isDocente) ...[
@@ -207,6 +323,55 @@ class ProfilePage extends ConsumerWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openEditDialog(
+      BuildContext context, WidgetRef ref, UserReadModel user) {
+    final nameController = TextEditingController(text: user.nombre);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface1,
+        shape: RoundedRectangleBorder(
+            borderRadius: AppTheme.bLG,
+            side: const BorderSide(color: AppTheme.border)),
+        title: const Text('Editar datos'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Nombre'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              final newName = nameController.text.trim();
+              if (newName.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await ref
+                    .read(authProvider.notifier)
+                    .updateDisplayName(newName);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Datos actualizados'),
+                    backgroundColor: AppTheme.success));
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Error: $e'),
+                    backgroundColor: AppTheme.error));
+              }
+            },
+            child: const Text('Guardar'),
           ),
         ],
       ),
@@ -367,16 +532,19 @@ class _DocenteKPIs extends ConsumerWidget {
 
     return async.when(
       loading: () => Row(
-        children: List.generate(3, (_) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.sp4),
-            child: BioSkeleton(
-              width: double.infinity,
-              height: 72,
-              borderRadius: AppTheme.bMD,
-            ),
-          ),
-        )),
+        children: List.generate(
+            3,
+            (_) => Expanded(
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: AppTheme.sp4),
+                    child: BioSkeleton(
+                      width: double.infinity,
+                      height: 72,
+                      borderRadius: AppTheme.bMD,
+                    ),
+                  ),
+                )),
       ),
       error: (_, __) => const SizedBox.shrink(),
       data: (evaluations) {
@@ -388,20 +556,23 @@ class _DocenteKPIs extends ConsumerWidget {
 
         return Row(
           children: [
-            Expanded(child: _KpiCard(
+            Expanded(
+                child: _KpiCard(
               icon: Icons.assignment_outlined,
               label: 'Evaluaciones',
               value: '$total',
             )),
             const SizedBox(width: AppTheme.sp8),
-            Expanded(child: _KpiCard(
+            Expanded(
+                child: _KpiCard(
               icon: Icons.check_circle_outline_rounded,
               label: 'Aprobados',
               value: '$aprobados',
               accent: AppTheme.success,
             )),
             const SizedBox(width: AppTheme.sp8),
-            Expanded(child: _KpiCard(
+            Expanded(
+                child: _KpiCard(
               icon: Icons.star_outline_rounded,
               label: 'Con nota',
               value: '$conNota',
@@ -749,6 +920,198 @@ class _EvalHistoryTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Lista de proyectos supervisados por el Docente ────────────────────────
+
+/// Lista las cards de proyectos donde el Docente es titular.
+/// Navega a [ProjectDetailPage] al tocar cada card.
+///
+/// CQRS Query: [teacherProjectsProvider] — GET /api/projects/teacher/{id}
+class _TeacherProjectsList extends ConsumerWidget {
+  const _TeacherProjectsList({required this.docenteId});
+  final String docenteId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(teacherProjectsProvider(docenteId));
+
+    if (state.isLoading) {
+      return Column(
+        children: List.generate(
+          2,
+          (_) => Padding(
+            padding: const EdgeInsets.only(bottom: AppTheme.sp8),
+            child: BioSkeleton(
+              width: double.infinity,
+              height: 72,
+              borderRadius: AppTheme.bMD,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (state.hasError) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppTheme.sp8),
+        child: BioErrorView(
+          message: state.error?.message ?? 'Error al cargar proyectos.',
+          onRetry: () => ref
+              .read(teacherProjectsProvider(docenteId).notifier)
+              .load(docenteId, forceRefresh: true),
+        ),
+      );
+    }
+
+    if (state.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppTheme.sp12),
+        child: Text(
+          'Aún no tienes proyectos asignados.',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            color: AppTheme.textDisabled,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children:
+          state.projects.map((p) => _TeacherProjectTile(project: p)).toList(),
+    );
+  }
+}
+
+class _TeacherProjectTile extends StatelessWidget {
+  const _TeacherProjectTile({required this.project});
+  final ProjectReadModel project;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.go(AppRoutes.projectDetailOf(project.id)),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppTheme.sp8),
+        padding: const EdgeInsets.all(AppTheme.sp12),
+        decoration: BoxDecoration(
+          color: AppTheme.surface1,
+          borderRadius: AppTheme.bMD,
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          children: [
+            // Thumbnail
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: project.thumbnailUrl != null &&
+                      project.thumbnailUrl!.isNotEmpty
+                  ? Image.network(
+                      project.thumbnailUrl!,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const _ProjectThumbnailPlaceholder(),
+                    )
+                  : const _ProjectThumbnailPlaceholder(),
+            ),
+            const SizedBox(width: AppTheme.sp12),
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    project.titulo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    project.materia,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  if (project.stackTecnologico.isNotEmpty) ...[
+                    const SizedBox(height: AppTheme.sp4),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      children: project.stackTecnologico
+                          .take(3)
+                          .map((s) => BioChip(label: s))
+                          .toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: AppTheme.sp8),
+            // Score + chevron
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if ((project.puntosTotales ?? 0) > 0)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded,
+                          size: 12, color: AppTheme.warning),
+                      const SizedBox(width: 2),
+                      Text(
+                        (project.puntosTotales ?? 0).toStringAsFixed(0),
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.warning,
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 4),
+                const Icon(Icons.chevron_right_rounded,
+                    size: 16, color: AppTheme.textDisabled),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectThumbnailPlaceholder extends StatelessWidget {
+  const _ProjectThumbnailPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppTheme.surface2,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(
+        Icons.folder_copy_outlined,
+        size: 20,
+        color: AppTheme.textDisabled,
       ),
     );
   }

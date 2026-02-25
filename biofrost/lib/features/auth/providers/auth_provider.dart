@@ -178,6 +178,23 @@ class AuthNotifier extends Notifier<AuthState> {
     return newUrl;
   }
 
+  /// Actualiza el nombre a mostrar (displayName) del usuario y refresca sesión.
+  Future<void> updateDisplayName(String newDisplayName) async {
+    final currentUser = ref.read(firebaseAuthProvider).currentUser;
+    if (currentUser == null) throw const AuthException();
+
+    try {
+      await _authService.updateDisplayName(
+        uid: currentUser.uid,
+        displayName: newDisplayName,
+      );
+      // Refrescar datos en el estado
+      await refreshUser();
+    } on AppException {
+      rethrow;
+    }
+  }
+
   /// Refresca los datos del usuario desde el backend.
   Future<void> refreshUser() async {
     final currentUser = ref.read(firebaseAuthProvider).currentUser;

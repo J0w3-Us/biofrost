@@ -30,8 +30,15 @@ class ApiEndpoints {
   /// GET /api/projects/group/{grupoId} — Proyectos del grupo del docente
   static String projectsByGroup(String grupoId) => '/projects/group/$grupoId';
 
+  /// GET /api/projects/teacher/{teacherId} — Proyectos supervisados por el docente
+  static String projectsByTeacher(String teacherId) =>
+      '/projects/teacher/$teacherId';
+
   /// GET /api/projects/{id}
   static String projectById(String id) => '/projects/$id';
+
+  /// GET /api/projects/{id}/media
+  static String projectMedia(String id) => '/projects/$id/media';
 
   // ── Evaluations ────────────────────────────────────────────────────
 
@@ -45,10 +52,6 @@ class ApiEndpoints {
   /// PATCH /api/evaluations/{id}/visibility
   static String evaluationVisibility(String id) =>
       '/evaluations/$id/visibility';
-
-  /// GET /api/evaluations/docente/{docenteId}
-  static String evaluationsByDocente(String docenteId) =>
-      '/evaluations/docente/$docenteId';
 
   // ── Teams ──────────────────────────────────────────────────────────
 
@@ -87,4 +90,9 @@ class ApiEndpoints {
 
   /// GET /api/admin/carreras
   static const String adminCarreras = '/admin/carreras';
+
+  // ── Projects (Write - CQRS Command) ───────────────────────────────
+
+  /// PATCH /api/projects/{id}/video-url — Actualiza solo la URL de video.
+  static String updateProjectVideoUrl(String id) => '/projects/$id/video-url';
 }

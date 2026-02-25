@@ -132,7 +132,32 @@ class ProjectRepository {
         _CacheEntry(projects, ttl: const Duration(minutes: 2));
     return projects;
   }
+  // ── Proyectos por Docente (Teacher endpoint) ─────────────────────────────────
 
+  /// Obtiene todos los proyectos supervisados por un docente.
+  /// Requiere autenticación de Docente.
+  ///
+  /// Endpoint: GET /api/projects/teacher/{teacherId}
+  Future<List<ProjectReadModel>> getProjectsByTeacher(
+    String teacherId, {
+    bool forceRefresh = false,
+  }) async {
+    final cacheKey = 'teacher_$teacherId';
+    final cached = _listCache[cacheKey];
+
+    if (!forceRefresh && cached != null && !cached.isExpired) {
+      return cached.data;
+    }
+
+    final response = await _api.get<List<dynamic>>(
+      ApiEndpoints.projectsByTeacher(teacherId),
+    );
+
+    final projects = _parseProjectList(response.data ?? []);
+    _listCache[cacheKey] =
+        _CacheEntry(projects, ttl: const Duration(minutes: 3));
+    return projects;
+  }
   // ── Detalle de Proyecto ────────────────────────────────────────────
 
   /// Obtiene los detalles completos de un proyecto por ID.
@@ -224,6 +249,21 @@ class ProjectRepository {
       },
     );
     // Invalidar caché del detalle para reflejar el nuevo mapa Votantes.
+    invalidateProject(projectId);
+  }
+
+  // ── CQRS Command: Actualizar URL de video ─────────────────────────
+
+  /// Actualiza solo la URL del video del proyecto.
+  ///
+  /// Endpoint: PATCH /api/projects/{id}/video-url
+  /// Body: { videoUrl: String? }
+  Future<void> updateVideoUrl(String projectId, String? videoUrl) async {
+    await _api.patch<Map<String, dynamic>>(
+      ApiEndpoints.updateProjectVideoUrl(projectId),
+      data: {'videoUrl': videoUrl},
+      authenticated: true,
+    );
     invalidateProject(projectId);
   }
 

@@ -4,6 +4,7 @@ import 'package:chewie/chewie.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:biofrost/core/theme/app_theme.dart';
+import 'package:biofrost/core/config/app_config.dart';
 
 /// Widget reproductor de video nativo para proyectos.
 ///
@@ -52,6 +53,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     super.dispose();
   }
 
+  String? _resolvedUrl;
+
   Future<void> _initializeVideo() async {
     try {
       setState(() {
@@ -60,8 +63,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       });
 
       // Detectar si es video directo o enlace externo
-      if (_isDirectVideoUrl(widget.videoUrl)) {
-        await _initializeDirectVideo();
+      // Resolver rutas que vienen como paths en Supabase Storage (ej: "videos/123.mp4")
+      _resolvedUrl = _resolveUrl(widget.videoUrl);
+
+      if (_isDirectVideoUrl(_resolvedUrl!)) {
+        await _initializeDirectVideo(_resolvedUrl!);
       } else {
         // Para YouTube/Vimeo, mostrar botón para abrir externamente
         setState(() {
@@ -76,9 +82,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     }
   }
 
-  Future<void> _initializeDirectVideo() async {
+  Future<void> _initializeDirectVideo(String url) async {
     _videoController = VideoPlayerController.networkUrl(
-      Uri.parse(widget.videoUrl),
+      Uri.parse(url),
     );
 
     await _videoController!.initialize();
@@ -116,7 +122,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     return directVideoExtensions.any((ext) => path.endsWith(ext)) ||
         uri.host.contains('storage.googleapis.com') ||
-        uri.host.contains('firebasestorage.googleapis.com');
+        uri.host.contains('firebasestorage.googleapis.com') ||
+        uri.host.contains(AppConfig.supabaseUrl.replaceAll('https://', '').replaceAll('http://', '')) ||
+        uri.host.contains('supabase.co');
   }
 
   bool _isYouTubeUrl(String url) {
@@ -293,11 +301,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   void _openExternalVideo() async {
-    final uri = Uri.tryParse(widget.videoUrl);
+    final uri = Uri.tryParse(_resolvedUrl ?? widget.videoUrl);
     if (uri != null) {
       // Usar URL launcher para abrir en navegador/app externa
       try {
-        final url = Uri.parse(widget.videoUrl);
+        final url = Uri.parse(_resolvedUrl ?? widget.videoUrl);
         if (await canLaunchUrl(url)) {
           await launchUrl(url, mode: LaunchMode.externalApplication);
         }
@@ -305,6 +313,18 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         // Fallback silencioso
       }
     }
+  }
+
+  String _resolveUrl(String url) {
+    if (url.trim().isEmpty) return url;
+    final u = url.trim();
+    // Si ya es una URL completa
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+
+    // Normalizar path y construir URL pública de Supabase Storage
+    var path = u;
+    if (path.startsWith('/')) path = path.substring(1);
+    return AppConfig.storageUrl(path);
   }
 
   @override

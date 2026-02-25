@@ -12,10 +12,12 @@ import 'package:biofrost/core/router/app_router.dart';
 import 'package:biofrost/core/services/analytics_service.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/core/widgets/ui_kit.dart';
-import 'package:biofrost/features/project_detail/widgets/feedback_section.dart';
-import 'package:biofrost/features/project_detail/widgets/rating_eval_section.dart';
+import 'package:biofrost/core/config/app_config.dart';
+import 'package:biofrost/features/project_detail/widgets/project_interaction_panel.dart';
 import 'package:biofrost/features/project_detail/widgets/project_video_card.dart';
+import 'package:biofrost/features/project_detail/widgets/video_player_widget.dart';
 import 'package:biofrost/features/sharing/sharing.dart';
+import 'package:biofrost/features/auth/providers/auth_provider.dart';
 import 'package:biofrost/features/showcase/providers/projects_provider.dart';
 
 /// Pantalla de detalle de un proyecto.
@@ -86,6 +88,14 @@ class _DetailContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Extraer todas las URLs de video del proyecto
+    String _blockUrl(Map<String, dynamic> b) =>
+        b['content'] as String? ??
+        b['url'] as String? ??
+        b['src'] as String? ??
+        b['href'] as String? ??
+        b['text'] as String? ??
+        '';
+
     bool _isVideoUrl(String url) {
       final u = url.toLowerCase();
       return u.contains('youtube.com') ||
@@ -94,21 +104,22 @@ class _DetailContent extends StatelessWidget {
           u.endsWith('.mp4') ||
           u.endsWith('.webm') ||
           u.endsWith('.mov') ||
+          u.endsWith('.avi') ||
+          u.endsWith('.mkv') ||
           u.contains('storage.googleapis.com') ||
-          u.contains('firebasestorage.googleapis.com');
+          u.contains('firebasestorage.googleapis.com') ||
+          u.contains('supabase.co/storage');
     }
 
     // Video principal del proyecto
     final primaryVideoUrl = project.hasVideo ? project.videoUrl : null;
 
-    // Videos adicionales del canvas
+    // Videos adicionales del canvas (bloques tipo 'video' o links que sean videos)
     final canvasVideoUrls = project.canvasBlocks
         .where((b) =>
             (b['type'] as String?) == 'video' ||
-            ((b['type'] as String?) == 'link' &&
-                _isVideoUrl(
-                    b['content'] as String? ?? b['text'] as String? ?? '')))
-        .map((b) => b['content'] as String? ?? b['text'] as String? ?? '')
+            ((b['type'] as String?) == 'link' && _isVideoUrl(_blockUrl(b))))
+        .map((b) => _blockUrl(b))
         .where((url) => url.isNotEmpty)
         .toList();
 
@@ -170,6 +181,7 @@ class _DetailContent extends StatelessWidget {
                 projectTitle: project.titulo,
                 canvasVideoUrls: canvasVideoUrls,
               ),
+              _VideoEditSection(project: project),
               const SizedBox(height: AppTheme.sp20),
 
               // ── 4. Links externos (repo + demo) ───────────────────────
@@ -207,19 +219,8 @@ class _DetailContent extends StatelessWidget {
                 const SizedBox(height: AppTheme.sp20),
               ],
 
-              // ── 8. Calificación + evaluación oficial ──────────────────
-              const BioDivider(label: 'CALIFICACIÓN'),
-              const SizedBox(height: AppTheme.sp16),
-              RatingEvalSection(
-                projectId: project.id,
-                docenteTitularId: project.docenteId,
-              ),
-              const SizedBox(height: AppTheme.sp20),
-
-              // ── 9. Retroalimentación (comentarios + sugerencias) ──────
-              const BioDivider(label: 'RETROALIMENTACIÓN'),
-              const SizedBox(height: AppTheme.sp16),
-              FeedbackSection(
+              // ── 8. Interacción unificada (calificación · evaluación · retroalimentación) ──
+              ProjectInteractionPanel(
                 projectId: project.id,
                 docenteTitularId: project.docenteId,
               ),
@@ -355,142 +356,6 @@ class _DescriptionCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// _VideoPitchCard — Video principal del proyecto
-// ══════════════════════════════════════════════════════════════════════════════
-
-class _VideoPitchCard extends StatelessWidget {
-  const _VideoPitchCard({required this.url});
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _launchUrl(url),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: AppTheme.surface1,
-          borderRadius: AppTheme.bLG,
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Área de play (aspect ratio 16:9) ──────────────────
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(AppTheme.radiusMD)),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Fondo oscuro degradado
-                    Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [AppTheme.surface2, Color(0xFF1A1A1A)],
-                        ),
-                      ),
-                    ),
-                    // Botón play central
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            width: 1.5),
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 36,
-                      ),
-                    ),
-                    // Label “Tocar para reproducir”
-                    Positioned(
-                      bottom: AppTheme.sp12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.open_in_new_rounded,
-                                size: 11, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text(
-                              'Tocar para reproducir',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 11,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // ── Pie de card ───────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  AppTheme.sp14, AppTheme.sp12, AppTheme.sp14, AppTheme.sp14),
-              child: Row(
-                children: [
-                  const Icon(Icons.videocam_rounded,
-                      size: 16, color: AppTheme.textDisabled),
-                  const SizedBox(width: AppTheme.sp8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Video Pitch',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          _displayUrl(url),
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 11,
-                            color: AppTheme.textDisabled,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -972,24 +837,41 @@ class _CanvasViewer extends StatelessWidget {
   final bool skipVideoBlocks;
   final String? skipThumbnailUrl;
 
+  String _blockUrl(Map<String, dynamic> b) =>
+      b['content'] as String? ??
+      b['url'] as String? ??
+      b['src'] as String? ??
+      b['href'] as String? ??
+      b['text'] as String? ??
+      '';
+
+  bool _isVideoUrl(String url) {
+    final u = url.toLowerCase();
+    return u.contains('youtube.com') ||
+        u.contains('youtu.be') ||
+        u.contains('vimeo.com') ||
+        u.endsWith('.mp4') ||
+        u.endsWith('.webm') ||
+        u.endsWith('.mov') ||
+        u.endsWith('.avi') ||
+        u.endsWith('.mkv') ||
+        u.contains('storage.googleapis.com') ||
+        u.contains('firebasestorage.googleapis.com') ||
+        u.contains('supabase.co/storage');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: blocks
           .where((b) {
             final type = b['type'] as String?;
-            final content =
-                b['content'] as String? ?? b['text'] as String? ?? '';
+            final content = _blockUrl(b);
             // Omitir bloques de video ya mostrados arriba
             if (skipVideoBlocks && type == 'video') return false;
-            // Omitir bloques link de YouTube/Vimeo cuando el video ya está arriba
+            // Omitir bloques link de YouTube/Vimeo/Supabase cuando el video ya está arriba
             if (skipVideoBlocks && type == 'link') {
-              final u = content.toLowerCase();
-              if (u.contains('youtube.com') ||
-                  u.contains('youtu.be') ||
-                  u.contains('vimeo.com') ||
-                  u.endsWith('.mp4') ||
-                  u.endsWith('.webm')) return false;
+              if (_isVideoUrl(content)) return false;
             }
             // Omitir bloques image que duplican el thumbnail del header
             if (type == 'image' &&
@@ -1007,11 +889,18 @@ class _CanvasBlock extends StatelessWidget {
   const _CanvasBlock(this.block);
   final Map<String, dynamic> block;
 
+  String _blockUrl(Map<String, dynamic> b) =>
+      b['content'] as String? ??
+      b['url'] as String? ??
+      b['src'] as String? ??
+      b['href'] as String? ??
+      b['text'] as String? ??
+      '';
+
   @override
   Widget build(BuildContext context) {
     final type = block['type'] as String? ?? 'text';
-    final content =
-        block['content'] as String? ?? block['text'] as String? ?? '';
+    final content = _blockUrl(block);
 
     switch (type) {
       // ── Encabezados ─────────────────────────────────────────────
@@ -1189,6 +1078,30 @@ class _CanvasBlock extends StatelessWidget {
 
 // ── Card de video en canvas ───────────────────────────────────────────────
 
+String _resolveCanvasUrl(String raw) {
+  if (raw.trim().isEmpty) return raw;
+  final u = raw.trim();
+  if (u.startsWith('http://') || u.startsWith('https://')) return u;
+  var path = u;
+  if (path.startsWith('/')) path = path.substring(1);
+  if (path.startsWith('${AppConfig.supabaseBucket}/')) {
+    path = path.substring(AppConfig.supabaseBucket.length + 1);
+  }
+  return AppConfig.storageUrl(path);
+}
+
+bool _isDirectVideoLink(String url) {
+  final u = url.toLowerCase();
+  return u.endsWith('.mp4') ||
+      u.endsWith('.webm') ||
+      u.endsWith('.mov') ||
+      u.endsWith('.avi') ||
+      u.endsWith('.mkv') ||
+      u.contains('storage.googleapis.com') ||
+      u.contains('firebasestorage.googleapis.com') ||
+      u.contains('supabase.co/storage');
+}
+
 class _CanvasVideoCard extends StatelessWidget {
   const _CanvasVideoCard({required this.url, this.margin});
   final String url;
@@ -1196,6 +1109,20 @@ class _CanvasVideoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolved = _resolveCanvasUrl(url);
+    // Si es un video directo (mp4/webm/Supabase), reproducirlo nativamente.
+    if (_isDirectVideoLink(resolved)) {
+      return Container(
+        margin: margin,
+        child: VideoPlayerWidget(
+          videoUrl: resolved,
+          autoPlay: false,
+          showControls: true,
+          aspectRatio: 16 / 9,
+        ),
+      );
+    }
+    // YouTube, Vimeo u otro — abrir externamente.
     return Container(
       margin: margin,
       decoration: BoxDecoration(
@@ -1206,7 +1133,7 @@ class _CanvasVideoCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _launchUrl(url),
+          onTap: () => _launchUrl(resolved),
           borderRadius: AppTheme.bMD,
           child: Padding(
             padding: const EdgeInsets.all(AppTheme.sp16),
@@ -1241,7 +1168,7 @@ class _CanvasVideoCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _displayUrl(url),
+                        _displayUrl(resolved),
                         style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 11,
@@ -1330,6 +1257,95 @@ String _displayUrl(String rawUrl) {
   if (uri == null) return rawUrl;
   final host = uri.host.replaceFirst('www.', '');
   return host.isNotEmpty ? host : rawUrl;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// _VideoEditSection — Botón editar URL de video (solo miembros del proyecto)
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _VideoEditSection extends ConsumerWidget {
+  const _VideoEditSection({required this.project});
+  final ProjectDetailReadModel project;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(currentUserProvider);
+    final isMember = currentUser != null &&
+        project.members.any((m) => m.id == currentUser.userId);
+
+    if (!isMember) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppTheme.sp8),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          icon: Icon(
+            project.hasVideo ? Icons.edit_rounded : Icons.videocam_rounded,
+            size: 16,
+          ),
+          label: Text(project.hasVideo ? 'Cambiar video' : 'Agregar video'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.textSecondary,
+            side: const BorderSide(color: AppTheme.border),
+          ),
+          onPressed: () => _showEditDialog(context, ref),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showEditDialog(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: project.videoUrl ?? '');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('URL del Video'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'YouTube, Vimeo o enlace MP4',
+            hintText: 'https://youtube.com/watch?v=...',
+          ),
+          autofocus: true,
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final newUrl =
+          controller.text.trim().isEmpty ? null : controller.text.trim();
+      try {
+        await ref
+            .read(projectRepositoryProvider)
+            .updateVideoUrl(project.id, newUrl);
+        ref.invalidate(projectDetailProvider(project.id));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Video actualizado')),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al guardar: $e')),
+          );
+        }
+      }
+    }
+    controller.dispose();
+  }
 }
 
 // ── Skeleton de carga ─────────────────────────────────────────────────────

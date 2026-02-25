@@ -11,6 +11,7 @@ import 'core/notifications/notification_service.dart';
 import 'core/router/app_router.dart';
 import 'core/services/connectivity_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/providers/theme_provider.dart';
 import 'core/widgets/ui_kit.dart';
 
 Future<void> main() async {
@@ -78,10 +79,14 @@ class BiofrostApp extends ConsumerWidget {
       }
     });
 
+    final themeMode = ref.watch(themeProvider);
+
     return MaterialApp.router(
       title: 'Biofrost — IntegradorHub',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
+      theme: themeMode == AppThemeModeOption.dark
+          ? AppTheme.dark()
+          : AppTheme.light(),
       routerConfig: router,
       // ── Banner offline global (Módulo 4.2) ──────────────────────────────
       // Envuelve la navegación completa para que el banner aparezca en
