@@ -1,4 +1,4 @@
-# 🌉 BIOFROST INTERFACE
+# BIOFROST INTERFACE
 
 **Sistema Integral de Gestión y Evaluación Competitiva de Proyectos Académicos**
 
