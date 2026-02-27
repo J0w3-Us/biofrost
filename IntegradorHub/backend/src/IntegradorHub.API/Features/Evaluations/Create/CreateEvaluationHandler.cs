@@ -44,16 +44,27 @@ public class CreateEvaluationHandler : IRequestHandler<CreateEvaluationCommand, 
         if (project == null)
             throw new KeyNotFoundException("Proyecto no encontrado");
 
-        // Validar que el docente existe y es docente
+        // Validar que el usuario existe
         var docente = await _userRepository.GetByIdAsync(request.DocenteId);
-        if (docente == null || docente.Rol != "Docente")
-            throw new UnauthorizedAccessException("Solo los docentes pueden evaluar proyectos");
+        if (docente == null)
+            throw new UnauthorizedAccessException("Usuario no encontrado");
+
+        bool isDocente = docente.Rol == "Docente";
+        bool isInvitado = docente.Rol == "Invitado";
+
+        // Solo Docentes e Invitados pueden evaluar; otros roles no tienen este flujo
+        if (!isDocente && !isInvitado)
+            throw new UnauthorizedAccessException("No tienes permiso para evaluar proyectos");
+
+        // Los Invitados solo pueden dejar sugerencias, nunca calificaciones oficiales
+        if (isInvitado && request.Tipo == "oficial")
+            throw new UnauthorizedAccessException("Los invitados solo pueden dejar sugerencias. Las calificaciones oficiales son exclusivas de los docentes.");
 
         // Validar tipo
         if (request.Tipo != "oficial" && request.Tipo != "sugerencia")
             throw new ArgumentException("Tipo de evaluación inválido. Debe ser 'oficial' o 'sugerencia'");
 
-        // Validar calificación si es oficial
+        // Validar calificación si es oficial (solo aplica a Docentes)
         if (request.Tipo == "oficial")
         {
             bool isTitular = project.DocenteId == request.DocenteId;

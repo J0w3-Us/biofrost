@@ -1,9 +1,23 @@
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Play, Users, ExternalLink, Edit, Star, ChevronLeft, ChevronRight, Image as ImageIcon, Trophy, X } from 'lucide-react';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { UserAvatar } from '../../../components/UserAvatar';
 import api from '../../../lib/axios';
+import { FONTS } from '../../projects/constants/editorFonts';
+
+// Safely reads the font of the first text block in the canvas — returns undefined if none.
+function getProjectTitleFont(project) {
+    try {
+        const TEXT_TYPES = ['text', 'h1', 'h2', 'h3', 'quote', 'bullet', 'todo'];
+        const firstTextBlock = (project.canvas || []).find(b => TEXT_TYPES.includes(b.type));
+        const font = firstTextBlock?.metadata?.fontFamily;
+        // Validate it's one of our known fonts
+        if (font && FONTS.some(f => f.value === font)) return font;
+    } catch (_) { }
+    return undefined;
+}
 
 export function ShowcaseCard({ project, onClick }) {
     const [isPlaying, setIsPlaying] = useState(false);
@@ -27,6 +41,9 @@ export function ShowcaseCard({ project, onClick }) {
     const [isVoting, setIsVoting] = useState(false);
 
     const isOwner = userData?.userId === project.liderId;
+
+    // Read font from first text block in canvas (safe, no layout changes)
+    const titleFont = getProjectTitleFont(project);
 
     // 2. Gather Media Items (Video + Thumbnail + Canvas Images)
     const mediaItems = [];
@@ -102,14 +119,16 @@ export function ShowcaseCard({ project, onClick }) {
     };
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col mb-12 group group-hover:-translate-y-1 hover:ring-1 hover:ring-indigo-100 w-full mx-auto">
+        <div className="bg-white dark:bg-[#1a1d27] rounded-xl border border-gray-100 dark:border-slate-700/50 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col mb-12 group group-hover:-translate-y-1 hover:ring-1 hover:ring-indigo-100 dark:hover:ring-slate-600 w-full mx-auto">
 
             {/* --- 1. Header: User & Status (Instagram Style Top) --- */}
-            <div className="p-4 flex items-center justify-between border-b border-gray-50 bg-white z-10">
+            <div className="p-4 flex items-center justify-between border-b border-gray-50 dark:border-slate-700/50 bg-white dark:bg-[#1a1d27] z-10">
                 <div className="flex items-center gap-3">
-                    <UserAvatar src={project.liderFotoUrl} name={project.liderNombre} size="md" className="border border-indigo-50 shadow-sm" />
-                    <div className="flex flex-col">
-                        <h4 className="text-sm font-bold text-gray-900 leading-none truncate max-w-[180px]" title={project.liderNombre}>
+                    <div onClick={(e) => { e.stopPropagation(); navigate(`/profile/${project.liderId}`); }} className="cursor-pointer hover:ring-2 hover:ring-indigo-200 rounded-full transition-all shrink-0">
+                        <UserAvatar src={project.liderFotoUrl} name={project.liderNombre} size="md" className="border border-indigo-50 shadow-sm" />
+                    </div>
+                    <div className="flex flex-col cursor-pointer hover:text-indigo-600 transition-colors" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${project.liderId}`); }}>
+                        <h4 className="text-sm font-bold leading-none truncate max-w-[180px] dark:text-white" title={project.liderNombre}>
                             {project.liderNombre || 'Desconocido'}
                         </h4>
                         <span className="text-[11px] text-gray-400 mt-1 font-medium">
@@ -199,7 +218,7 @@ export function ShowcaseCard({ project, onClick }) {
                         <img
                             src={currentMedia.url}
                             alt={project.titulo}
-                            className="w-full h-full object-contain transition-transform duration-700 group-hover/img:scale-105"
+                            className="w-full h-full object-contain"
                         />
                     </div>
                 ) : (
@@ -248,14 +267,18 @@ export function ShowcaseCard({ project, onClick }) {
             </div>
 
             {/* --- 3. Body & Footer (Info Section) --- */}
-            <div className="p-5 flex flex-col flex-1 bg-white">
+            <div className="p-5 flex flex-col flex-1 bg-white dark:bg-[#1a1d27]">
 
                 {/* Title & Description */}
                 <div className="mb-4">
-                    <h3 onClick={onClick} className="text-lg font-bold text-gray-900 leading-snug mb-2 cursor-pointer hover:text-indigo-600 transition-colors line-clamp-1">
+                    <h3
+                        onClick={onClick}
+                        className="text-lg font-bold text-gray-900 dark:text-white leading-snug mb-2 cursor-pointer hover:text-indigo-600 transition-colors line-clamp-1"
+                        style={titleFont ? { fontFamily: titleFont } : undefined}
+                    >
                         {project.titulo || 'Sin Título'}
                     </h3>
-                    <p onClick={onClick} className="text-gray-600 text-sm leading-relaxed line-clamp-2 cursor-pointer">
+                    <p onClick={onClick} className="text-gray-600 dark:text-slate-400 text-sm leading-relaxed line-clamp-2 cursor-pointer">
                         {description}
                     </p>
                 </div>
@@ -263,19 +286,19 @@ export function ShowcaseCard({ project, onClick }) {
                 {/* Tech Stack */}
                 <div className="flex flex-wrap gap-1.5 mb-5 mt-auto">
                     {project.stackTecnologico?.slice(0, 3).map((tech, i) => (
-                        <span key={i} className="px-2.5 py-1 bg-gray-50 border border-gray-100 text-gray-600 text-[11px] font-semibold rounded-md shadow-sm">
+                        <span key={i} className="px-2.5 py-1 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 text-gray-600 dark:text-slate-300 text-[11px] font-semibold rounded-md shadow-sm">
                             {tech}
                         </span>
                     ))}
                     {(project.stackTecnologico?.length || 0) > 3 && (
-                        <span className="px-2 py-1 text-gray-400 text-[11px] font-medium bg-gray-50/50 rounded-md">
+                        <span className="px-2 py-1 text-gray-400 dark:text-slate-500 text-[11px] font-medium bg-gray-50/50 dark:bg-slate-800/50 rounded-md">
                             +{project.stackTecnologico.length - 3}
                         </span>
                     )}
                 </div>
 
                 {/* Bottom Action Row */}
-                <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
+                <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50 dark:border-slate-700/50">
 
                     {/* Interactive Rating for Guests / Official Rating for Owner */}
                     <div className="flex items-center gap-3">
@@ -297,7 +320,7 @@ export function ShowcaseCard({ project, onClick }) {
                                         disabled={isVoting}
                                         className={`p-0.5 transition-all duration-200 hover:scale-125 ${(hoverRating || userRating) >= star
                                             ? 'text-yellow-400 drop-shadow-sm'
-                                            : 'text-gray-200 hover:text-yellow-300'
+                                            : 'text-gray-200 dark:text-slate-600 hover:text-yellow-300'
                                             }`}
                                     >
                                         <Star size={18} fill={(hoverRating || userRating) >= star ? "currentColor" : "none"} />
@@ -317,15 +340,14 @@ export function ShowcaseCard({ project, onClick }) {
                 </div>
             </div>
 
-            {/* --- LIGHTBOX OVERLAY --- */}
-            {isLightboxOpen && (
+            {isLightboxOpen && createPortal(
                 <div
-                    className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center backdrop-blur-md"
+                    className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center backdrop-blur-md group/lightbox"
                     onClick={() => setIsLightboxOpen(false)}
                 >
                     {/* Close Button */}
                     <button
-                        className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all z-50 cursor-pointer"
+                        className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all z-50 cursor-pointer opacity-0 group-hover/lightbox:opacity-100 duration-300"
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsLightboxOpen(false);
@@ -359,21 +381,19 @@ export function ShowcaseCard({ project, onClick }) {
                     )}
 
                     {/* Lightbox Content */}
-                    <div
-                        className="relative w-full h-full max-w-[90vw] max-h-[90vh] flex items-center justify-center pointer-events-none"
-                    >
+                    <div className="relative w-[90vw] h-[90vh] flex items-center justify-center pointer-events-none">
                         {currentMedia.type === 'video' ? (
                             <video
                                 src={currentMedia.url}
                                 controls
                                 autoPlay
-                                className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-lg pointer-events-auto"
+                                className="w-full h-full object-contain drop-shadow-2xl rounded-lg pointer-events-auto"
                             />
                         ) : currentMedia.type === 'image' ? (
                             <img
                                 src={currentMedia.url}
                                 alt="Contenido Ampliado"
-                                className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-lg pointer-events-auto"
+                                className="w-full h-full object-contain drop-shadow-2xl rounded-lg pointer-events-auto"
                             />
                         ) : null}
                     </div>
@@ -393,7 +413,8 @@ export function ShowcaseCard({ project, onClick }) {
                             ))}
                         </div>
                     )}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

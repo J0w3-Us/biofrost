@@ -4,7 +4,7 @@ import { Users, Star, Clock, CheckCircle, ExternalLink, Plus } from 'lucide-reac
 import { StatCard } from './StatCard';
 import { ProjectTimelineChart } from './ProjectTimelineChart';
 import { TeamSuggestions } from './TeamSuggestions';
-import { ProjectCard } from '../../projects/components/ProjectCard';
+import { ShowcaseCard } from '../../public/components/ShowcaseCard';
 
 export function StudentDashboard({
     userData,
@@ -47,13 +47,13 @@ export function StudentDashboard({
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-sm"
+                className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-slate-700/50 p-12 text-center shadow-sm"
             >
-                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Star size={32} />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Hola, {userData?.nombre?.split(' ')[0]}!</h2>
-                <p className="text-gray-500 max-w-md mx-auto mb-8 text-lg">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">¡Hola, {userData?.nombre?.split(' ')[0]}!</h2>
+                <p className="text-gray-500 dark:text-slate-400 max-w-md mx-auto mb-8 text-lg">
                     Aún no formas parte de ningún proyecto integral. Comienza creando tu propio proyecto o únete al de un compañero.
                 </p>
                 <div className="flex flex-col items-center gap-6 mt-4">
@@ -141,9 +141,9 @@ export function StudentDashboard({
                 <div className="lg:col-span-1 flex flex-col gap-6">
 
                     {/* Proyecto Card */}
-                    <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm flex flex-col h-full">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">Acceso Rápido</h3>
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center justify-between px-1">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Acceso Rápido</h3>
                             <button
                                 onClick={onProjectClick}
                                 className="text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 p-2 rounded-lg"
@@ -152,13 +152,10 @@ export function StudentDashboard({
                                 <ExternalLink size={18} />
                             </button>
                         </div>
-                        <div className="flex-1">
-                            <ProjectCard
-                                project={project}
-                                onClick={onProjectClick}
-                                layoutId={`dashboard-${project.id}`}
-                            />
-                        </div>
+                        <ShowcaseCard
+                            project={{ ...project, coverUrl: project.videoUrl || project.thumbnailUrl || null }}
+                            onClick={onProjectClick}
+                        />
                     </div>
 
                     {/* Team Suggestions */}

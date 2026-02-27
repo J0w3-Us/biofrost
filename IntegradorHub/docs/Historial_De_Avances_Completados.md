@@ -4,6 +4,43 @@ Este documento sirve como bitácora y registro de las características, módulos
 
 ---
 
+## 🖥️ Refactorización UI: Sidebar Responsivo y Nueva Identidad (Febrero 2026)
+
+### 1. Menú Lateral Inteligente (Desktop & Mobile)
+- **Desktop (Hover-to-Expand):** Se rediseñó el `Sidebar` para comportarse como una "Píldora" colapsada por defecto (ahorrando espacio en la pantalla). Al pasar el cursor, el menú se expande fluidamente revelando los textos de navegación completos, usando transiciones nativas de Tailwind CSS sin librerías externas.
+- **Mobile (Drawer Modal):** En dispositivos móviles, la lógica _hover_ se desactiva. En su lugar, el `DashboardLayout` ahora incluye un elegante **Topbar** con un botón de menú tipo "Hamburguesa". Al tocarlo, el menú lateral se desliza (Drawer) superponiéndose a la pantalla junto con un fondo oscurecido (Overlay). El menú se auto-cierra al seleccionar una opción.
+
+### 2. Identidad Corporativa (Tema Monocromático)
+- Se sustituyó el logo temporal ("B" degradada) por el ícono corporativo oficial de **Byfrost** (el "Puente"). 
+- El esquema de colores del sistema de navegación fue ajustado para seguir una estética **limpia, blanca y profesional**. Los íconos inactivos usan tonos grises (`slate-400`/`500`), el texto activo e íconos usan tonos muy oscuros (`gray-900`), logrando una Interfaz de Usuario de tipo "Dashboard Corporativo" libre de ruidos visuales distractores.
+
+### 3. Escalado Dinámico de Elementos (Íconos)
+- Para aprovechar el espacio cuando el menú está colapsado en pantallas grandes (Desktop), se creó un sistema de redimensionamiento matemático responsivo.
+- Los íconos de navegación (junto con el botón de logout y la foto de perfil) aumentan considerablemente su tamaño automáticamente para lucir prominentes mientras están colapsados. Al expandir el panel o cambiar a vista móvil, los íconos regresan fluida y proporcionalmente a su tamaño normal para encajar armónicamente con los textos.
+
+---
+
+## 🔗 Redes Sociales y Perfiles Públicos de Solo Lectura (Febrero 2026)
+
+### 1. Sistema Modular de Enlaces Sociales (Backend & Frontend)
+- **Persistencia Flexible:** Se integró un nuevo campo `RedesSociales` (tipo Diccionario) a los perfiles en Firestore. Esto evita "hardcodear" columnas y permite almacenar un número dinámico de plataformas sociales.
+- **Endpoints de Actualización (`UsersProfileController.cs`)**: Se creó la ruta `PUT /api/users/{userId}/social` controlada por `UpdateSocialLinksHandler.cs`. Dicho handler fue diseñado para fusionar inteligentemente los enlaces nuevos con los existentes, permitiendo agregarlos 1x1, editarlos o purgar enlaces vacíos, valiéndose de resoluciones de mapeo en Diccionarios con `SetOptions.MergeAll`.
+- **Panel de Configuración Interactivo (`ProfilePage.jsx`)**: Se rediseñó la experiencia de usuario agregando la "Caja de Herramientas Social". Ahora los usuarios pueden insertar URLs de Github, LinkedIn, Twitter, Website o YouTube, desplegándose en elegantes pastillas flotantes (Badges) con iconos nativos.
+
+### 2. Visores de Perfiles Públicos (Modo Social)
+- **Extracción Segura (`PublicProfileDto`)**: Se expuso la ruta `GET /api/users/{userId}/profile` que exporta un DTO higienizado conteniendo únicamente datos inofensivos para proteger la identidad y privacidad del titular frente a visitantes curiosos.
+- **Reciclaje Inteligente de Vistas (`ProfilePage.jsx`)**: En lugar de crear pantallas duplicadas, se capitalizó la robusta UI del "Perfil Privado". El sistema inyecta una guardia booleana (`isOwnProfile`) que detecta visitantes externos (mediante parámetros `/profile/:userId`) para blindar el perfil, ocultando los controles de subida de fotos y botones de edición de forma incondicional, dejando una nítida tarjeta de "Solo Lectura".
+
+### 3. Hiper-Navegabilidad Transversal (Frontend)
+- **Social Graph en IntegradorHub**: Fomentando el sentido de comunidad, ahora cualquier usuario puede explorar los perfiles de todos los creadores de software del ecosistema. 
+- La arquitectura cobró vida al envolver con componentes interactivos los avatares en los puntos neurálgicos más importantes del portal:
+  - La Galería Pública de Proyectos (`ShowcaseCard`).
+  - La ventana de Detalles y Creadores (`ProjectDetailsModal`).
+  - El Directorio del Aula Virtual (`TeamPage`).
+  - El Panel de Listado "Mis Proyectos" (`ProjectsPage`).
+
+---
+
 ## ✅ Módulo de Registro y Asignación de Docentes (Febrero 2026)
 
 ### 1. Sistema de Asignación Inteligente (Backend)
@@ -173,6 +210,45 @@ Este documento sirve como bitácora y registro de las características, módulos
 - **El Problema:** La sección "Encuentra a tu equipo" en `StudentDashboard.jsx` mostraba nombres genéricos como "US" e "Ingeniería" para los compañeros de grupo, a pesar de que el backend ya enviaba la información real a través del endpoint `/api/teams/available-students`.
 - **La Solución:** Se actualizó el componente dependiente `TeamSuggestions.jsx` porque estaba intentando extraer variables anticuadas (`student.nombre` y `student.carrera`). Ahora mapea correctamente la estructura del Backend contemporáneo leyendo `student.nombreCompleto` y `student.matricula`. 
 - **Mejora de UI Cortesia:** Aprovechando el rediseño, las tarjetas de estudiantes sugeridos se centraron por completo en su contenedor, y se les añadió la lógica para renderizar la foto de perfil en tiempo real (`student.fotoUrl`) mediante el componente circular, empleando un fallback de iniciales estilizadas si la foto es nula.
+
+---
+*Fin del registro de esta actualización.*
+
+---
+
+## 👥 Mejoras en el Buscador y Agregado de Miembros de Proyecto (Febrero 2026)
+
+### 1. Interfaz de Autocompletado Integrada (Frontend)
+- Se reemplazó el antiguo campo de texto en `ProjectDetailsModal.jsx` por un moderno componente de autocompletado interactivo (Dropdown/Combobox).
+- Ahora, al intentar agregar un nuevo integrante, el líder del proyecto puede buscar dinámicamente a sus compañeros de clase ingresando su nombre o matrícula.
+- Los resultados se muestran en tiempo real e incluyen la foto de perfil (usando `UserAvatar`), nombre completo y matrícula para una selección visual y precisa.
+
+### 2. Sincronización Rigurosa del Grupo (Backend)
+- **El Problema:** El buscador de compañeros disponibles siempre se reportaba vacío. Esto descubrió un fallo estructural: el backend omitía el identificador del grupo (`GrupoId`) al entregar el resumen del proyecto. El Frontend al desconocer el grupo, consultaba "todos los alumnos disponibles del grupo: undefined", obteniendo cero resultados. 
+- **La Solución:** Se refactorizó la estructura base (`ProjectDetailsDto`) y sus controladores (`GetProjectDetailsHandler.cs`, `GetProjectByMemberHandler.cs`) para incluir y propagar el `GrupoId`. Ahora, el panel garantiza proponer únicamente alumnos de la misma clase (grupo).
+
+### 3. Persistencia de Asignación Bidireccional
+- Se arregló una vulnerabilidad silenciosa en `AddMemberHandler.cs`: Aunque el estudiante se unía al arreglo de "miembros" del proyecto, el perfil del usuario no registraba que ya tenía equipo (`User.ProjectId` quedaba nulo).
+- Se implementó la escritura bidireccional obligatoria. El endpoint de alumnos disponibles ahora filtra de forma infalible únicamente a aquellos compañeros sin `ProjectId`, evitando duplicidad o miembros "robados" por otros equipos.
+
+---
+*Fin del registro de esta actualización.*
+
+---
+
+## 🔦 Correcciones de Lightbox y Refinamiento de Interfaz (Febrero 2026)
+
+### 1. Sistema de Lightbox Robusto (React Portals)
+- **Eliminación de Conflictos de Stacking:** Se migraron los visores de medios (`Lightbox`) de `ProjectDetailsModal` y `ShowcaseCard` hacia un sistema de **React Portals**. Esto garantiza que el lightbox se monte directamente en el `document.body` con un `z-index` de 9999, eliminando bloqueos visuales o fallos de clics causados por animaciones de Framer Motion u `overflow-hidden` en contenedores ancestros.
+- **Inmersión 90/90:** Se rediseñó el layout del lightbox para ocupar exactamente el **90% del ancho y alto de la pantalla** (`90vw/90vh`) de forma fija, proporcionando una experiencia cinematográfica independientemente de la resolución original de la imagen o video.
+
+### 2. Estabilidad de Ciclo de Vida (Component Remounting)
+- Se implementó la técnica de **Keyed Remounting** en la galería pública. Al asignar `key={selectedProject.id}` al modal de detalles, se asegura un reinicio total de todos los estados internos (carruesel, video, lightbox) al navegar entre proyectos, eliminando comportamientos erráticos o persistencia de datos del proyecto anterior.
+
+### 3. Refinamiento Estético y UX "Zero Noise"
+- **Cleanup de Cabecera:** Se eliminaron los badges estáticos de "Borrador" y "Materia" para limpiar el campo visual. La materia se reubicó como un subtítulo elegante, mejorando la jerarquía tipográfica.
+- **Controles Contextuales:** El botón de cierre (`X`) del lightbox ahora es inteligente; permanece invisible para no obstruir la vista y aparece mediante un fade-in suave únicamente cuando el usuario interactúa con el cursor sobre la pantalla.
+- **Corrección de Hit-Testing:** Se eliminaron las transformaciones CSS de escala (`hover:scale-105`) en las miniaturas de los carruseles, lo que resolvió un bug donde el área visual de la imagen no coincidía con su área de clic real, causando "clicks fantasma".
 
 ---
 *Fin del registro de esta actualización.*

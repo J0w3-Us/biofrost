@@ -30,7 +30,8 @@ public record LoginResponse(
     string? Profesion,
     string? EspecialidadDocente,
     string? Organizacion,
-    string? CreatedAt
+    string? CreatedAt,
+    Dictionary<string, string>? RedesSociales
 );
 
 // === HANDLER ===
@@ -139,7 +140,8 @@ public class LoginHandler : IRequestHandler<LoginCommand, LoginResponse>
                     existingUser.Profesion,
                     existingUser.EspecialidadDocente,
                     existingUser.Organizacion,
-                    existingUser.CreatedAt
+                    existingUser.CreatedAt,
+                    existingUser.RedesSociales
                 );
             }
 
@@ -186,7 +188,8 @@ public class LoginHandler : IRequestHandler<LoginCommand, LoginResponse>
                 newUser.Profesion,
                 newUser.EspecialidadDocente,
                 newUser.Organizacion,
-                newUser.CreatedAt
+                newUser.CreatedAt,
+                newUser.RedesSociales
             );
         }
         catch (Exception ex)

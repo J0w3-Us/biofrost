@@ -55,6 +55,17 @@ export function DashboardPage() {
         }
     }, [userData]);
 
+    // Normalize keys from PascalCase (C# backend) to camelCase
+    const normalizePascal = (obj) => {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+        const newObj = {};
+        Object.entries(obj).forEach(([key, value]) => {
+            const camelKey = key.charAt(0).toLowerCase() + key.slice(1);
+            newObj[camelKey] = value;
+        });
+        return newObj;
+    };
+
     const fetchGroupDetails = async () => {
         try {
             const response = await api.get(`/api/admin/groups/${userData.grupoId}`);
@@ -70,19 +81,40 @@ export function DashboardPage() {
                 try {
                     const response = await api.get(`/api/projects/my-project?userId=${userData.userId}`);
                     if (response.data) {
-                        const p = response.data;
+                        const normalize = (obj) => {
+                            if (!obj) return null;
+                            const newObj = {};
+                            Object.entries(obj).forEach(([key, value]) => {
+                                newObj[key.charAt(0).toLowerCase() + key.slice(1)] = value;
+                            });
+                            return newObj;
+                        };
+
+                        const rawProject = normalize(response.data);
+                        const rawMembers = (rawProject.members || rawProject.miembros || []).map(normalize);
+                        const rawCanvas = rawProject.canvasBlocks || rawProject.canvas || [];
+                        const liderObj = rawMembers.find(m => m.id === rawProject.liderId) || {};
+
+                        const textBlock = rawCanvas.find(b => (b.type === 'text' || b.Type === 'text') && (b.content || b.Content)?.trim());
+                        let extractedDescription = 'Sin descripción disponible. Navega a los detalles para ver más.';
+                        if (textBlock && (textBlock.content || textBlock.Content)) {
+                            extractedDescription = (textBlock.content || textBlock.Content)
+                                .replace(/<[^>]+>/g, '')
+                                .replace(/&nbsp;/g, ' ')
+                                .trim();
+                        }
+                        const imageBlock = rawCanvas.find(b => (b.type === 'image' || b.Type === 'image') && (b.content || b.Content));
+
                         const normalized = {
-                            id: p.id || p.Id,
-                            titulo: p.titulo || p.Titulo,
-                            materia: p.materia || p.Materia,
-                            estado: p.estado || p.Estado,
-                            stackTecnologico: p.stackTecnologico || p.StackTecnologico || [],
-                            liderId: p.liderId || p.LiderId,
-                            miembrosIds: p.miembrosIds || p.MiembrosIds || [],
-                            docenteId: p.docenteId || p.DocenteId,
-                            createdAt: p.createdAt || p.CreatedAt,
-                            calificacion: p.calificacion || p.Calificacion || null,
-                            puntosTotales: p.puntosTotales || p.PuntosTotales || 0
+                            ...rawProject,
+                            liderNombre: liderObj.nombre || 'Desconocido',
+                            liderFotoUrl: liderObj.fotoUrl || null,
+                            thumbnailUrl: rawProject.thumbnailUrl || (imageBlock ? (imageBlock.content || imageBlock.Content) : null),
+                            canvas: rawCanvas.map(normalize),
+                            descripcion: extractedDescription,
+                            miembros: rawMembers,
+                            puntosTotales: rawProject.puntosTotales || 0,
+                            calificacion: rawProject.calificacion || null
                         };
                         projectsData = [normalized];
                     }
@@ -92,10 +124,19 @@ export function DashboardPage() {
                 }
             } else if (userData?.rol === 'Docente') {
                 const response = await api.get(`/api/projects/teacher/${userData.userId}`);
-                projectsData = response.data;
+                // Normalize PascalCase keys from backend to camelCase for ShowcaseCard
+                projectsData = (response.data || []).map(p => ({
+                    ...normalizePascal(p),
+                    // Ensure canvas is normalized too (if present)
+                    canvas: (p.CanvasBlocks || p.canvasBlocks || []).map(b => normalizePascal(b)),
+                }));
             } else if (userData?.grupoId) {
                 const response = await api.get(`/api/projects/group/${userData.grupoId}`);
-                projectsData = response.data;
+                // Normalize PascalCase keys from backend to camelCase for ShowcaseCard
+                projectsData = (response.data || []).map(p => ({
+                    ...normalizePascal(p),
+                    canvas: (p.CanvasBlocks || p.canvasBlocks || []).map(b => normalizePascal(b)),
+                }));
             }
 
             setProjects(projectsData || []);
@@ -126,10 +167,10 @@ export function DashboardPage() {
             <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header Section */}
                 <div className="mb-10">
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">
                         Dashboard
                     </h1>
-                    <p className="text-gray-600 text-base max-w-2xl">
+                    <p className="text-gray-600 dark:text-slate-400 text-base max-w-2xl">
                         Gestión integral de proyectos integradores.
                     </p>
                 </div>
@@ -137,7 +178,7 @@ export function DashboardPage() {
                 {loading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {[1, 2, 3].map(i => (
-                            <div key={i} className="h-64 bg-gray-100 rounded-xl animate-pulse" />
+                            <div key={i} className="h-64 bg-gray-100 dark:bg-slate-800 rounded-xl animate-pulse" />
                         ))}
                     </div>
                 ) : userData?.rol === 'Alumno' ? (
@@ -174,7 +215,7 @@ export function DashboardPage() {
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 10 }}
                             onClick={e => e.stopPropagation()}
-                            className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+                            className="bg-white dark:bg-[#1a1d27] w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
                         >
                             <CreateProjectForm
                                 onClose={() => setShowCreateModal(false)}
@@ -200,7 +241,7 @@ export function DashboardPage() {
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 10 }}
                             onClick={e => e.stopPropagation()}
-                            className="bg-white w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh]"
+                            className="bg-black dark:bg-black w-full max-w-6xl rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700/50 overflow-hidden h-[85vh] flex flex-col"
                         >
                             <ProjectDetailsModal
                                 project={selectedProject}

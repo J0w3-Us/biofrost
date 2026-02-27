@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Users, CheckCircle, Clock } from 'lucide-react';
 import { StatCard } from './StatCard';
-import { ProjectCard } from '../../projects/components/ProjectCard';
+import { ShowcaseCard } from '../../public/components/ShowcaseCard';
 
 export function TeacherDashboard({ userData, projects, groupName, searchQuery, onProjectClick }) {
     // Definir variantes de animación
@@ -86,37 +86,38 @@ export function TeacherDashboard({ userData, projects, groupName, searchQuery, o
             {readyToEvaluateProjects.length > 0 && (
                 <div className="mt-12">
                     <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
                             <Clock className="w-5 h-5 text-orange-600" />
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900">Atención Prioritaria: Requieren Evaluación</h3>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">Atención Prioritaria: Requieren Evaluación</h3>
                     </div>
 
-                    <motion.div
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-6 bg-orange-50/50 rounded-2xl border border-orange-100"
-                    >
-                        {readyToEvaluateProjects.map(project => (
-                            <motion.div key={project.id} variants={itemVariants}>
-                                <ProjectCard
-                                    project={project}
-                                    onClick={() => onProjectClick(project)}
-                                    layoutId={`priority-${project.id}`}
-                                />
-                            </motion.div>
-                        ))}
-                    </motion.div>
+                    <div className="p-6 bg-orange-50/50 dark:bg-orange-900/10 rounded-2xl border border-orange-100 dark:border-orange-900/30">
+                        <motion.div
+                            variants={containerVariants}
+                            initial="hidden"
+                            animate="visible"
+                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                        >
+                            {readyToEvaluateProjects.map(project => (
+                                <motion.div key={project.id} variants={itemVariants}>
+                                    <ShowcaseCard
+                                        project={project}
+                                        onClick={() => onProjectClick(project)}
+                                    />
+                                </motion.div>
+                            ))}
+                        </motion.div>
+                    </div>
                 </div>
             )}
 
             {/* All Group Projects Grid */}
-            <div className="mt-12 pt-8 border-t border-gray-100">
+            <div className="mt-12 pt-8 border-t border-gray-100 dark:border-slate-700/50">
                 <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-bold text-gray-900">Todos los Proyectos del Grupo</h2>
-                        <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-semibold">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Todos los Proyectos del Grupo</h2>
+                        <span className="bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 px-3 py-1 rounded-full text-sm font-semibold">
                             {filteredProjects.length}
                         </span>
                     </div>
@@ -131,17 +132,16 @@ export function TeacherDashboard({ userData, projects, groupName, searchQuery, o
                     {filteredProjects.length > 0 ? (
                         filteredProjects.map(project => (
                             <motion.div key={project.id} variants={itemVariants}>
-                                <ProjectCard
+                                <ShowcaseCard
                                     project={project}
                                     onClick={() => onProjectClick(project)}
-                                    layoutId={`all-${project.id}`}
                                 />
                             </motion.div>
                         ))
                     ) : (
-                        <div className="col-span-full bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2">No se encontraron proyectos</h3>
-                            <p className="text-gray-500 max-w-md mx-auto">
+                        <div className="col-span-full bg-gray-50 dark:bg-slate-800/50 border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-xl p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No se encontraron proyectos</h3>
+                            <p className="text-gray-500 dark:text-slate-400 max-w-md mx-auto">
                                 Intenta ajustando los términos de búsqueda o espera a que los alumnos creen sus proyectos.
                             </p>
                         </div>

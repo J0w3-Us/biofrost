@@ -6,11 +6,11 @@ export function ProjectCard({ project, onClick }) {
   return (
     <div
       onClick={onClick}
-      className="group relative bg-white border border-gray-200 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-gray-300 flex flex-col h-full"
+      className="group relative bg-white dark:bg-[#1a1d27] border border-gray-200 dark:border-slate-700/50 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-gray-300 dark:hover:border-slate-600 flex flex-col h-full"
     >
       {/* Status & Icon Header */}
       <div className="flex justify-between items-start mb-4">
-        <div className="p-3 bg-gray-50 rounded-lg text-gray-700 group-hover:bg-gray-100 transition-colors">
+        <div className="p-3 bg-gray-50 dark:bg-slate-800 rounded-lg text-gray-700 dark:text-slate-300 group-hover:bg-gray-100 dark:group-hover:bg-slate-700 transition-colors">
           <LayoutGrid size={24} strokeWidth={1.5} />
         </div>
         {project.estado && (
@@ -25,12 +25,12 @@ export function ProjectCard({ project, onClick }) {
 
       {/* Content */}
       <div className="flex-1">
-        <h3 className="text-lg font-semibold text-gray-900 leading-snug mb-2 line-clamp-2 group-hover:text-black">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-snug mb-2 line-clamp-2 group-hover:text-black dark:group-hover:text-white">
           {project.titulo || 'Proyecto sin título'}
         </h3>
 
         {project.docenteNombre && (
-          <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+          <p className="text-sm text-gray-500 dark:text-slate-400 mb-4 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
             {project.docenteNombre}
           </p>
@@ -41,13 +41,13 @@ export function ProjectCard({ project, onClick }) {
           {(project.stackTecnologico || []).slice(0, 3).map((tech, index) => (
             <span
               key={index}
-              className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 text-xs font-medium text-gray-600 border border-gray-100"
+              className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 dark:bg-slate-800 text-xs font-medium text-gray-600 dark:text-slate-300 border border-gray-100 dark:border-slate-700"
             >
               {tech}
             </span>
           ))}
           {((project.stackTecnologico || []).length > 3) && (
-            <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 text-xs font-medium text-gray-500 border border-gray-100">
+            <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 dark:bg-slate-800 text-xs font-medium text-gray-500 dark:text-slate-400 border border-gray-100 dark:border-slate-700">
               +{(project.stackTecnologico || []).length - 3}
             </span>
           )}
@@ -55,7 +55,7 @@ export function ProjectCard({ project, onClick }) {
       </div>
 
       {/* Footer / Date */}
-      <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400">
+      <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-700/50 flex justify-between items-center text-xs text-gray-400 dark:text-slate-500">
         <span>{project.materia || 'Materia desconocida'}</span>
         <span>
           {(() => {

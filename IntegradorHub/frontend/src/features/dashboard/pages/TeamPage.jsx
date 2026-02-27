@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { UserAvatar } from '../../../components/UserAvatar';
 import api from '../../../lib/axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export function TeamPage() {
     const { userData } = useAuth();
@@ -94,33 +94,33 @@ export function TeamPage() {
 
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Mi Equipo</h1>
-                <p className="text-gray-600">Gestiona tu equipo y encuentra compañeros.</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Mi Equipo</h1>
+                <p className="text-gray-600 dark:text-slate-400">Gestiona tu equipo y encuentra compañeros.</p>
             </div>
 
             {/* MY TEAM SECTION */}
             <section className="shrink-0">
-                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
                     <Users className="text-blue-600" size={20} />
                     Mi Proyecto
                 </h2>
 
                 {loading ? (
-                    <div className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
+                    <div className="h-32 bg-gray-100 dark:bg-slate-800 rounded-2xl animate-pulse" />
                 ) : project ? (
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm"
+                        className="bg-white dark:bg-[#1a1d27] rounded-3xl p-6 border border-gray-200 dark:border-slate-700/50 shadow-sm"
                     >
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                             <div>
-                                <h3 className="text-2xl font-bold text-gray-900 break-words">{project.titulo}</h3>
+                                <h3 className="text-2xl font-bold text-gray-900 dark:text-white break-words">{project.titulo}</h3>
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold uppercase tracking-wider">
                                         {project.materia}
                                     </span>
-                                    <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold uppercase tracking-wider">
+                                    <span className="px-3 py-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 rounded-full text-xs font-bold uppercase tracking-wider">
                                         {project.estado}
                                     </span>
                                 </div>
@@ -137,19 +137,21 @@ export function TeamPage() {
                         {project.members && project.members.length > 0 ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {project.members.map(member => (
-                                    <div key={member.id} className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
-                                        <UserAvatar src={member.fotoUrl} name={(member.nombre && member.nombre !== 'Usuario') ? member.nombre : member.email} size="md" className="w-12 h-12 border-2 border-white shadow-sm" />
+                                    <div key={member.id} className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700/50">
+                                        <Link to={`/profile/${member.id}`} className="shrink-0 rounded-full hover:ring-2 hover:ring-blue-500 transition-all" title="Ver perfil">
+                                            <UserAvatar src={member.fotoUrl} name={(member.nombre && member.nombre !== 'Usuario') ? member.nombre : member.email} size="md" className="w-12 h-12 border-2 border-white shadow-sm" />
+                                        </Link>
                                         <div className="min-w-0">
-                                            <p className="font-bold text-gray-900 truncate">
+                                            <p className="font-bold text-gray-900 dark:text-white truncate">
                                                 {(member.nombre && member.nombre !== 'Usuario') ? member.nombre : (member.email || 'Miembro')}
                                             </p>
-                                            <p className="text-xs text-gray-500 uppercase font-bold truncate">{member.rol}</p>
+                                            <p className="text-xs text-gray-500 dark:text-slate-400 uppercase font-bold truncate">{member.rol}</p>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-gray-500 italic p-4 bg-gray-50 rounded-xl">
+                            <div className="text-gray-500 dark:text-slate-400 italic p-4 bg-gray-50 dark:bg-slate-800/50 rounded-xl">
                                 No se encontraron miembros en este proyecto.
                             </div>
                         )}
@@ -159,13 +161,13 @@ export function TeamPage() {
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-dashed border-blue-200 rounded-3xl p-8 text-center"
+                        className="bg-gradient-to-br from-blue-50 dark:from-blue-900/20 to-indigo-50 dark:to-indigo-900/20 border-2 border-dashed border-blue-200 dark:border-blue-700/50 rounded-3xl p-8 text-center"
                     >
                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-blue-500">
                             <Plus size={32} />
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">No tienes proyecto activo</h3>
-                        <p className="text-gray-600 mb-6 max-w-sm mx-auto">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No tienes proyecto activo</h3>
+                        <p className="text-gray-600 dark:text-slate-400 mb-6 max-w-sm mx-auto">
                             Ve al apartado de "Mis Proyectos" para crear uno nuevo e invitar a tus compañeros.
                         </p>
                         <button
@@ -178,25 +180,25 @@ export function TeamPage() {
                 )}
             </section>
 
-            <hr className="border-gray-200" />
+            <hr className="border-gray-200 dark:border-slate-700/50" />
 
             {/* CLASSMATES SECTION */}
             <section className="flex-1 min-h-0 flex flex-col">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
                         <User className="text-gray-400" size={20} />
                         Compañeros de Clase ({availableStudents.length})
                     </h2>
 
                     {/* Search */}
-                    <div className="bg-white p-2 rounded-xl border border-gray-200 shadow-sm w-full max-w-sm flex items-center">
+                    <div className="bg-white dark:bg-[#1a1d27] p-2 rounded-xl border border-gray-200 dark:border-slate-700/50 shadow-sm w-full max-w-sm flex items-center">
                         <Search className="ml-2 text-gray-400" size={18} />
                         <input
                             type="text"
                             placeholder="Buscar compañero..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full px-3 bg-transparent outline-none text-sm"
+                            className="w-full px-3 bg-transparent dark:text-white outline-none text-sm dark:placeholder:text-slate-500"
                         />
                     </div>
                 </div>
@@ -204,7 +206,7 @@ export function TeamPage() {
                 {/* Students Grid */}
                 {loading ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[1, 2, 3].map(i => <div key={i} className="h-40 bg-gray-100 rounded-2xl animate-pulse" />)}
+                        {[1, 2, 3].map(i => <div key={i} className="h-40 bg-gray-100 dark:bg-slate-800 rounded-2xl animate-pulse" />)}
                     </div>
                 ) : availableStudents.length > 0 ? (
                     <motion.div
@@ -218,13 +220,15 @@ export function TeamPage() {
                                 key={student.id}
                                 variants={itemVariants}
                                 whileHover={{ y: -4 }}
-                                className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group"
+                                className="bg-white dark:bg-[#1a1d27] p-5 rounded-2xl border border-gray-100 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-all group"
                             >
                                 <div className="flex items-center gap-4 mb-4">
-                                    <UserAvatar src={student.fotoUrl} name={student.nombreCompleto} size="md" className="w-12 h-12 group-hover:bg-blue-100" />
+                                    <Link to={`/profile/${student.id}`} className="shrink-0 rounded-full hover:ring-2 hover:ring-blue-500 transition-all" title="Ver perfil">
+                                        <UserAvatar src={student.fotoUrl} name={student.nombreCompleto} size="md" className="w-12 h-12 group-hover:bg-blue-100" />
+                                    </Link>
                                     <div className="min-w-0">
-                                        <h3 className="font-bold text-gray-900 truncate">{student.nombreCompleto}</h3>
-                                        <p className="text-xs text-gray-500">{student.matricula}</p>
+                                        <h3 className="font-bold text-gray-900 dark:text-white truncate">{student.nombreCompleto}</h3>
+                                        <p className="text-xs text-gray-500 dark:text-slate-400">{student.matricula}</p>
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center">
@@ -232,7 +236,7 @@ export function TeamPage() {
                                         }`}>
                                         {student.hasProject ? 'En Proyecto' : 'Disponible'}
                                     </span>
-                                    <button className="text-sm font-medium text-gray-400 hover:text-gray-900 transition-colors">
+                                    <button className="text-sm font-medium text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white transition-colors">
                                         Contactar
                                     </button>
                                 </div>

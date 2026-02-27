@@ -7,50 +7,96 @@ namespace IntegradorHub.API.Features.Projects.GetByGroup;
 // === QUERY ===
 public record GetProjectsByGroupQuery(string GroupId) : IRequest<List<ProjectDto>>;
 
-
+public record ProjectDto(
+    string Id,
+    string Titulo,
+    string? Materia,
+    string Estado,
+    List<string> StackTecnologico,
+    string LiderId,
+    string? LiderNombre,
+    string? LiderFotoUrl,
+    int MembersCount,
+    string? ThumbnailUrl,
+    string? VideoUrl,
+    string? DocenteId,
+    bool EsPublico,
+    DateTime CreatedAt,
+    double? Calificacion,
+    double? PuntosTotales,
+    string? Descripcion,
+    Dictionary<string, int>? Votantes
+);
 
 // === HANDLER ===
 public class GetProjectsByGroupHandler : IRequestHandler<GetProjectsByGroupQuery, List<ProjectDto>>
 {
     private readonly IProjectRepository _projectRepository;
+    private readonly IUserRepository _userRepository;
 
-    public GetProjectsByGroupHandler(IProjectRepository projectRepository)
+    public GetProjectsByGroupHandler(IProjectRepository projectRepository, IUserRepository userRepository)
     {
         _projectRepository = projectRepository;
+        _userRepository = userRepository;
     }
 
     public async Task<List<ProjectDto>> Handle(GetProjectsByGroupQuery request, CancellationToken cancellationToken)
     {
         var projects = await _projectRepository.GetByGroupIdAsync(request.GroupId);
-        
-        return projects.Select(p => new ProjectDto(
-            p.Id,
-            p.Titulo,
-            p.Materia,
-            p.Estado,
-            p.StackTecnologico,
-            p.LiderId,
-            p.MiembrosIds.Count,
-            p.ThumbnailUrl,
-            p.DocenteId,
-            p.EsPublico,
-            p.CreatedAt.ToDateTime(),
-            p.Calificacion
-        )).ToList();
+
+        var result = new List<ProjectDto>();
+
+        foreach (var p in projects)
+        {
+            string? liderNombre = null;
+            string? liderFotoUrl = null;
+
+            try
+            {
+                var lider = await _userRepository.GetByIdAsync(p.LiderId);
+                liderNombre = lider?.Nombre;
+                liderFotoUrl = lider?.FotoUrl;
+            }
+            catch { /* ignore missing leaders */ }
+
+            // Extract description from first non-empty text canvas block
+            string? descripcion = null;
+            if (p.CanvasBlocks != null)
+            {
+                var textTypes = new[] { "text", "h1", "h2", "h3", "quote", "bullet", "todo" };
+                var textBlock = p.CanvasBlocks.FirstOrDefault(b =>
+                    textTypes.Contains(b.Type?.ToLower()) &&
+                    !string.IsNullOrWhiteSpace(b.Content));
+
+                if (textBlock?.Content != null)
+                {
+                    descripcion = System.Text.RegularExpressions.Regex.Replace(textBlock.Content, "<[^>]+>", "")
+                        .Replace("&nbsp;", " ").Trim();
+                }
+            }
+
+            result.Add(new ProjectDto(
+                p.Id,
+                p.Titulo,
+                p.Materia,
+                p.Estado,
+                p.StackTecnologico ?? new List<string>(),
+                p.LiderId,
+                liderNombre,
+                liderFotoUrl,
+                p.MiembrosIds.Count,
+                p.ThumbnailUrl,
+                p.VideoUrl,
+                p.DocenteId,
+                p.EsPublico,
+                p.CreatedAt.ToDateTime(),
+                p.Calificacion,
+                p.PuntosTotales,
+                descripcion,
+                p.Votantes
+            ));
+        }
+
+        return result;
     }
 }
-
-public record ProjectDto(
-    string Id,
-    string Titulo,
-    string Materia,
-    string Estado,
-    List<string> StackTecnologico,
-    string LiderId,
-    int MembersCount,
-    string? ThumbnailUrl,
-    string? DocenteId,
-    bool EsPublico,
-    DateTime CreatedAt,
-    double? Calificacion
-);

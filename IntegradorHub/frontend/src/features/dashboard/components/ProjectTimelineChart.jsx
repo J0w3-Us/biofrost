@@ -64,12 +64,12 @@ export function ProjectTimelineChart({ project }) {
 
     if (!project || (project.puntosTotales || 0) === 0) {
         return (
-            <div className="bg-white rounded-xl border border-gray-100 p-6 flex flex-col items-center justify-center h-64 shadow-sm">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+            <div className="bg-white dark:bg-[#1a1d27] rounded-xl border border-gray-100 dark:border-slate-700/50 p-6 flex flex-col items-center justify-center h-64 shadow-sm">
+                <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
                     <span className="text-2xl">📈</span>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900">Aún no hay votos</h3>
-                <p className="text-sm text-gray-500 text-center max-w-xs mt-1">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Aún no hay votos</h3>
+                <p className="text-sm text-gray-500 dark:text-slate-400 text-center max-w-xs mt-1">
                     Cuando tu proyecto reciba evaluaciones, verás aquí su crecimiento.
                 </p>
             </div>
@@ -77,10 +77,10 @@ export function ProjectTimelineChart({ project }) {
     }
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+        <div className="bg-white dark:bg-[#1a1d27] rounded-xl border border-gray-100 dark:border-slate-700/50 p-6 shadow-sm">
             <div className="mb-6">
-                <h3 className="text-lg font-bold text-gray-900">Rendimiento del Proyecto</h3>
-                <p className="text-sm text-gray-500">Evolución de puntos</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Rendimiento del Proyecto</h3>
+                <p className="text-sm text-gray-500 dark:text-slate-400">Evolución de puntos</p>
             </div>
 
             <div className="h-64 w-full">

@@ -154,6 +154,9 @@ export function LoginPage() {
         if (rol === 'admin' || rol === 'SuperAdmin') {
             return <Navigate to="/admin" replace />;
         }
+        if (rol === 'Alumno') {
+            return <Navigate to="/projects" replace />;
+        }
         return <Navigate to="/dashboard" replace />;
     }
 
@@ -378,7 +381,7 @@ export function LoginPage() {
                     {/* Logo */}
                     <div style={styles.logoSection}>
                         <div style={styles.logoIcon}>
-                            <span style={styles.logoText}>B</span>
+                            <img src="/byfrost-icon.png" alt="Byfrost" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '16px' }} />
                         </div>
                         <h1 style={styles.title}>Byfrost®</h1>
                         <p style={styles.subtitle}>DSM Edition</p>
@@ -499,7 +502,7 @@ export function LoginPage() {
                     {/* Logo */}
                     <div style={styles.logoSection}>
                         <div style={styles.logoIcon}>
-                            <span style={styles.logoText}>B</span>
+                            <img src="/byfrost-icon.png" alt="Byfrost" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '16px' }} />
                         </div>
                         <h1 style={styles.title}>Byfrost®</h1>
                         <p style={styles.subtitle}>DSM Edition</p>
@@ -774,12 +777,14 @@ const styles = {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '60px',
-        height: '60px',
-        backgroundColor: '#111827',
-        borderRadius: '16px',
+        width: '68px',
+        height: '68px',
+        backgroundColor: '#ffffff',
+        borderRadius: '18px',
         marginBottom: '16px',
-        boxShadow: '0 4px 12px rgba(17, 24, 39, 0.25)'
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+        padding: '4px',
+        overflow: 'hidden'
     },
     logoText: {
         fontSize: '24px',

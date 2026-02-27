@@ -16,4 +16,5 @@ public interface IUserRepository
     Task<IEnumerable<User>> GetByRoleAsync(string role);
     Task<IEnumerable<User>> GetStudentsByGroupAsync(string grupoId);
     Task<IEnumerable<User>> GetTeachersByGroupAsync(string grupoId, string? carreraId = null);
+    Task UpdateSocialLinksAsync(string userId, Dictionary<string, string> redesSociales);
 }

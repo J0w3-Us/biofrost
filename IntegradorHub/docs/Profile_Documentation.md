@@ -24,6 +24,19 @@ Los datos del usuario se sincronizan automáticamente desde el Backend (.NET) a 
 | `especialidadDocente`| `string?` | Especialidad (solo Docentes). |
 | `organizacion` | `string?` | Organización (solo Invitados). |
 | `updatedAt` | `timestamp` | Fecha de la última sincronización. |
+| `redesSociales`| `map` | Objeto llave-valor de enlaces a redes sociales (Github, Linkedin, Twitter, Web). |
+
+## Perfiles Públicos (Solo Lectura)
+
+Se implementó el concepto de "Perfiles Públicos" que permite a cualquier miembro de IntegradorHub ver el perfil de otro usuario como si fuera una red social.
+
+1.  **Backend (`UsersProfileController`)**:
+    -   Se expone el endpoint `GET /api/users/{userId}/profile` que retorna un `PublicProfileDto`.
+    -   Este DTO oculta intencionalmente información delicada para proteger la identidad del usuario y envía solamente los datos inofensivos (Rol, Nombre, Carrera, Avatar, Redes Sociales, Miembro Desde).
+2.  **Frontend (`ProfilePage.jsx`)**:
+    -   El componente principal reutiliza la misma Vista UI (`/profile/:userId`).
+    -   Determina los privilegios de edición mediante una guarda booleana (`isOwnProfile`).
+    -   Si el usuario visita un perfil externo, **se ocultan todos los controles de edición de redes sociales y avatares**.
 
 ## Integración de Datos
 

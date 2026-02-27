@@ -59,7 +59,7 @@ El proyecto se visualiza como una tarjeta dinámica en un Dashboard tipo Microso
 *   **RF-02:** Filtrado de equipo restringido por el Grupo del Líder.
 *   **RF-03:** Tooltip de validación de matrícula en el buscador de miembros.
 *   **RF-04:** CRUD de materias y prioridades gestionado por el Super Admin.
-*   **RF-05:** Galería pública filtrable por Stack Tecnológico para invitados.
+
 
 ---
 

@@ -43,7 +43,7 @@ export function ProjectEditorPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-white flex items-center justify-center">
+            <div className="min-h-screen bg-white dark:bg-[#0f1117] flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
         );
@@ -52,12 +52,12 @@ export function ProjectEditorPage() {
     if (!project) return <div>Proyecto no encontrado</div>;
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white dark:bg-[#0f1117]">
             {/* Navigation Bar */}
-            <nav className="border-b border-gray-100 px-4 py-3 sticky top-0 bg-white/80 backdrop-blur z-10 flex items-center justify-between">
+            <nav className="border-b border-gray-100 dark:border-slate-700/50 px-4 py-3 sticky top-0 bg-white/80 dark:bg-[#0f1117]/80 backdrop-blur z-10 flex items-center justify-between">
                 <button
                     onClick={() => navigate('/dashboard')}
-                    className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
+                    className="flex items-center gap-2 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                     <ArrowLeft size={20} />
                     <span className="text-sm font-medium">Volver al Dashboard</span>
@@ -69,12 +69,12 @@ export function ProjectEditorPage() {
                             <img
                                 key={m.id}
                                 src={m.fotoUrl || `https://ui-avatars.com/api/?name=${m.nombre}&background=random`}
-                                className="w-8 h-8 rounded-full border-2 border-white"
+                                className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-800"
                                 title={m.nombre}
                             />
                         ))}
                         {(project.members || []).length > 3 && (
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 border-2 border-white">
+                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-slate-300 border-2 border-white dark:border-slate-800">
                                 +{project.members.length - 3}
                             </div>
                         )}

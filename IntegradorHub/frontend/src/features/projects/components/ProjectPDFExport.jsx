@@ -1,61 +1,392 @@
-import { useState, useRef } from 'react';
-import html2canvas from 'html2canvas';
+import { useState } from 'react';
 import { jsPDF } from 'jspdf';
+import { Download, Loader2 } from 'lucide-react';
 import QRCode from 'react-qr-code';
-import { Download, FileText, Loader2 } from 'lucide-react';
+
+// Utility for defensive metadata parsing (same as CanvasEditor)
+const getNormalizedMetadata = (metadata) => {
+    if (!metadata) return {};
+    if (typeof metadata === 'string') { try { return JSON.parse(metadata); } catch { return {}; } }
+    return metadata;
+};
+
+const getTableData = (block) => {
+    const meta = getNormalizedMetadata(block.metadata);
+    let raw = meta?.table || meta?.Table;
+    if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch { raw = null; } }
+    if (!raw) return { rows: [], hasHeader: true };
+    let rows = raw.rows || raw.Rows || [];
+    if (Array.isArray(rows)) {
+        rows = rows.map(row => {
+            if (typeof row === 'string') { try { return JSON.parse(row); } catch { return [row]; } }
+            return Array.isArray(row) ? row : [String(row)];
+        });
+    }
+    const hasHeader = raw.hasHeader ?? raw.HasHeader ?? true;
+    return { rows, hasHeader };
+};
+
+// Strip all HTML tags and decode basic entities
+const stripHtml = (html) => {
+    if (!html) return '';
+    return html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&quot;/g, '"')
+        .trim();
+};
+
+// Draw wrapped text and return the new Y position
+const addWrappedText = (doc, text, x, y, maxWidth, lineHeight) => {
+    const lines = doc.splitTextToSize(text, maxWidth);
+    doc.text(lines, x, y);
+    return y + lines.length * lineHeight;
+};
 
 export function ProjectPDFExportButton({ project, creadorNombre }) {
     const [isExporting, setIsExporting] = useState(false);
-    const pdfTemplateRef = useRef(null);
 
-    // Filter Canvas blocks specifically for PDF (text and select images)
-    // The user requested to KEEP everything, so we will map all blocks.
-    const validBlocks = project?.canvas?.filter(b => b.content && (b.type === 'text' || b.type === 'image')) || [];
-
-    // Public URL for the QR code
     const publicUrl = typeof window !== 'undefined' ? `${window.location.origin}/showcase` : 'https://integradorhub.com';
 
     const handleExportPDF = async () => {
-        if (!pdfTemplateRef.current || !project) return;
-
+        if (!project) return;
         setIsExporting(true);
         try {
-            // Give normal DOM a moment to ensure all images in the hidden div are loaded
-            await new Promise(res => setTimeout(res, 800));
+            // Pre-fetch all image blocks as base64 so we can embed them in the PDF
+            const blocks = project?.canvas || project?.canvasBlocks || [];
+            const imageBlocks = Array.isArray(blocks) ? blocks.filter(b => b.type === 'image' && b.content) : [];
+            const imageCache = {};
+            await Promise.allSettled(
+                imageBlocks.map(async (block) => {
+                    try {
+                        const resp = await fetch(block.content, { mode: 'cors' });
+                        const blob = await resp.blob();
+                        const base64 = await new Promise((res) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => res(reader.result);
+                            reader.readAsDataURL(blob);
+                        });
+                        // Detect format from mime type
+                        const mime = blob.type || 'image/jpeg';
+                        const fmt = mime.includes('png') ? 'PNG' : mime.includes('gif') ? 'GIF' : 'JPEG';
+                        imageCache[block.id] = { base64, fmt };
+                    } catch { /* skip images that fail to load */ }
+                })
+            );
 
-            const canvas = await html2canvas(pdfTemplateRef.current, {
-                scale: 2, // higher resolution
-                useCORS: true, // allow external images
-                allowTaint: true,
-                logging: false,
-                windowWidth: 800 // mimic a stable width
-            });
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const W = doc.internal.pageSize.getWidth();     // 210
+            const H = doc.internal.pageSize.getHeight();    // 297
+            const margin = 20;
+            const contentW = W - margin * 2;
+            let y = margin;
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.95); // Slight compression
+            const LINE_SM = 5;
+            const LINE_MD = 6;
+            const LINE_LG = 8;
 
-            // A4 measures 210mm x 297mm
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            const newPage = () => {
+                doc.addPage();
+                y = margin;
+            };
 
-            // Simple pagination logic for tall canvases
-            let heightLeft = pdfHeight;
-            let position = 0;
+            const checkY = (needed = 10) => {
+                if (y + needed > H - margin) newPage();
+            };
 
-            pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-            heightLeft -= pdf.internal.pageSize.getHeight();
+            // ── HEADER ────────────────────────────────────────────────────
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(22);
+            doc.setTextColor(17, 24, 39);
+            const titleLines = doc.splitTextToSize(project.titulo || 'Sin Título', contentW - 30);
+            doc.text(titleLines, margin, y);
+            y += titleLines.length * LINE_LG + 2;
 
-            while (heightLeft > 0) { // Fix >= to > to avoid blank extra page
-                position = heightLeft - pdfHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-                heightLeft -= pdf.internal.pageSize.getHeight();
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(107, 114, 128);
+            doc.text(`${project.materia || ''} • Ciclo ${project.ciclo || ''}`, margin, y);
+            y += LINE_MD;
+
+            // Divider
+            doc.setDrawColor(229, 231, 235);
+            doc.setLineWidth(0.5);
+            doc.line(margin, y, W - margin, y);
+            y += 8;
+
+            // ── INFO GRID ─────────────────────────────────────────────────
+            // Left: Responsable
+            doc.setFillColor(239, 246, 255);
+            doc.roundedRect(margin, y, contentW / 2 - 3, 22, 3, 3, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            doc.setTextColor(59, 130, 246);
+            doc.text('RESPONSABLE', margin + 4, y + 6);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(31, 41, 55);
+            doc.text(creadorNombre || 'N/A', margin + 4, y + 13);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(107, 114, 128);
+            doc.text('Líder de Proyecto', margin + 4, y + 19);
+
+            // Right: Stack
+            const rx = margin + contentW / 2 + 3;
+            doc.setFillColor(249, 250, 251);
+            doc.roundedRect(rx, y, contentW / 2 - 3, 22, 3, 3, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            doc.setTextColor(107, 114, 128);
+            doc.text('TECNOLOGÍAS', rx + 4, y + 6);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(55, 65, 81);
+            const stack = (project.stackTecnologico || []).join(' • ') || 'No especificado';
+            const stackLines = doc.splitTextToSize(stack, contentW / 2 - 10);
+            doc.text(stackLines, rx + 4, y + 13);
+            y += 28;
+
+            // ── TEAM ──────────────────────────────────────────────────────
+            if (project.members?.length > 0) {
+                checkY(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(17, 24, 39);
+                doc.text('Equipo', margin, y);
+                y += LINE_MD;
+                doc.setDrawColor(229, 231, 235);
+                doc.line(margin, y, W - margin, y);
+                y += 5;
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                project.members.forEach(m => {
+                    checkY(6);
+                    const name = m.nombre && m.nombre !== 'Usuario' ? m.nombre : m.email;
+                    const role = m.rol || 'Miembro';
+                    doc.setTextColor(55, 65, 81);
+                    doc.text(`• ${name}`, margin + 3, y);
+                    doc.setTextColor(107, 114, 128);
+                    doc.text(role, W - margin - doc.getTextWidth(role), y);
+                    y += LINE_SM + 1;
+                });
+                y += 4;
             }
 
-            pdf.save(`Proyecto_${project.titulo?.replace(/\s+/g, '_') || 'Export'}.pdf`);
+            // ── CANVAS BLOCKS ─────────────────────────────────────────────
+            const canvas = project?.canvas || project?.canvasBlocks || [];
+            if (Array.isArray(canvas) && canvas.length > 0) {
+                checkY(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(17, 24, 39);
+                doc.text('Detalles del Proyecto', margin, y);
+                y += LINE_MD;
+                doc.setDrawColor(229, 231, 235);
+                doc.line(margin, y, W - margin, y);
+                y += 6;
+
+                for (const block of canvas) {
+                    checkY(10);
+                    const text = stripHtml(block.content || '');
+
+                    switch (block.type) {
+                        case 'h1':
+                            doc.setFont('helvetica', 'bold');
+                            doc.setFontSize(16);
+                            doc.setTextColor(17, 24, 39);
+                            y = addWrappedText(doc, text, margin, y, contentW, LINE_LG + 2);
+                            y += 3;
+                            break;
+
+                        case 'h2':
+                            checkY(12);
+                            doc.setFont('helvetica', 'bold');
+                            doc.setFontSize(13);
+                            doc.setTextColor(31, 41, 55);
+                            y = addWrappedText(doc, text, margin, y, contentW, LINE_LG);
+                            y += 2;
+                            break;
+
+                        case 'h3':
+                            checkY(10);
+                            doc.setFont('helvetica', 'bold');
+                            doc.setFontSize(11);
+                            doc.setTextColor(55, 65, 81);
+                            y = addWrappedText(doc, text, margin, y, contentW, LINE_MD);
+                            y += 2;
+                            break;
+
+                        case 'quote':
+                            checkY(8);
+                            doc.setDrawColor(156, 163, 175);
+                            doc.setLineWidth(1.5);
+                            doc.line(margin, y - 1, margin, y + LINE_MD * doc.splitTextToSize(text, contentW - 8).length);
+                            doc.setLineWidth(0.5);
+                            doc.setFont('helvetica', 'italic');
+                            doc.setFontSize(10);
+                            doc.setTextColor(75, 85, 99);
+                            y = addWrappedText(doc, text, margin + 5, y, contentW - 8, LINE_MD);
+                            y += 3;
+                            break;
+
+                        case 'code':
+                            checkY(10);
+                            doc.setFillColor(243, 244, 246);
+                            const codeLines = doc.splitTextToSize(block.content || '', contentW - 8);
+                            doc.roundedRect(margin, y - 3, contentW, codeLines.length * LINE_SM + 8, 2, 2, 'F');
+                            doc.setFont('courier', 'normal');
+                            doc.setFontSize(8);
+                            doc.setTextColor(31, 41, 55);
+                            doc.text(codeLines, margin + 4, y + 2);
+                            y += codeLines.length * LINE_SM + 9;
+                            break;
+
+                        case 'bullet':
+                            checkY(6);
+                            doc.setFont('helvetica', 'normal');
+                            doc.setFontSize(10);
+                            doc.setTextColor(55, 65, 81);
+                            doc.text('•', margin + 2, y);
+                            y = addWrappedText(doc, text, margin + 7, y, contentW - 7, LINE_MD);
+                            y += 1;
+                            break;
+
+                        case 'todo':
+                            checkY(6);
+                            const metaTodo = getNormalizedMetadata(block.metadata);
+                            doc.setDrawColor(209, 213, 219);
+                            doc.setLineWidth(0.4);
+                            doc.rect(margin + 1, y - 3.5, 4, 4);
+                            if (metaTodo?.checked) {
+                                doc.setFont('helvetica', 'bold');
+                                doc.setFontSize(8);
+                                doc.setTextColor(59, 130, 246);
+                                doc.text('✓', margin + 1.5, y - 0.5);
+                            }
+                            doc.setFont('helvetica', 'normal');
+                            doc.setFontSize(10);
+                            doc.setTextColor(metaTodo?.checked ? 156 : 55, metaTodo?.checked ? 163 : 65, metaTodo?.checked ? 175 : 81);
+                            y = addWrappedText(doc, text, margin + 8, y, contentW - 8, LINE_MD);
+                            y += 1;
+                            break;
+
+                        case 'divider':
+                            checkY(6);
+                            doc.setDrawColor(229, 231, 235);
+                            doc.setLineWidth(0.5);
+                            doc.line(margin, y, W - margin, y);
+                            y += 6;
+                            break;
+
+                        case 'table':
+                            checkY(20);
+                            const { rows, hasHeader } = getTableData(block);
+                            if (!rows.length) break;
+
+                            // Calculate column widths
+                            const cols = rows[0]?.length || 1;
+                            const colW = contentW / cols;
+
+                            doc.setLineWidth(0.3);
+                            doc.setDrawColor(209, 213, 219);
+
+                            rows.forEach((row, ri) => {
+                                checkY(8);
+                                const cellH = 8;
+
+                                if (hasHeader && ri === 0) {
+                                    doc.setFillColor(249, 250, 251);
+                                }
+
+                                row.forEach((cell, ci) => {
+                                    const cx = margin + ci * colW;
+                                    if (hasHeader && ri === 0) {
+                                        doc.setFillColor(249, 250, 251);
+                                        doc.rect(cx, y - 4, colW, cellH, 'FD');
+                                        doc.setFont('helvetica', 'bold');
+                                    } else {
+                                        doc.rect(cx, y - 4, colW, cellH, 'D');
+                                        doc.setFont('helvetica', 'normal');
+                                    }
+                                    doc.setFontSize(9);
+                                    doc.setTextColor(31, 41, 55);
+                                    const cellText = doc.splitTextToSize(String(cell || ''), colW - 4);
+                                    doc.text(cellText[0] || '', cx + 2, y);
+                                });
+                                y += cellH;
+                            });
+                            y += 4;
+                            break;
+
+                        case 'image': {
+                            const cached = imageCache[block.id];
+                            if (cached) {
+                                try {
+                                    // Calculate height proportionally to fit within page width
+                                    const imgProps = doc.getImageProperties(cached.base64);
+                                    const imgW = contentW;
+                                    const imgH = (imgProps.height * imgW) / imgProps.width;
+                                    const maxImgH = 120; // max 120mm tall
+                                    const finalH = Math.min(imgH, maxImgH);
+                                    checkY(finalH + 4);
+                                    doc.addImage(cached.base64, cached.fmt, margin, y, imgW, finalH);
+                                    y += finalH + 4;
+                                } catch {
+                                    doc.setFont('helvetica', 'italic');
+                                    doc.setFontSize(8);
+                                    doc.setTextColor(156, 163, 175);
+                                    doc.text('[Imagen no disponible]', margin, y);
+                                    y += LINE_MD;
+                                }
+                            } else if (block.content) {
+                                doc.setFont('helvetica', 'italic');
+                                doc.setFontSize(8);
+                                doc.setTextColor(156, 163, 175);
+                                doc.text('[Imagen adjunta]', margin, y);
+                                y += LINE_MD;
+                            }
+                            break;
+                        }
+
+                        default: // text
+                            if (!text) break;
+                            checkY(6);
+                            doc.setFont('helvetica', 'normal');
+                            doc.setFontSize(10);
+                            doc.setTextColor(75, 85, 99);
+                            y = addWrappedText(doc, text, margin, y, contentW, LINE_MD);
+                            y += 2;
+                            break;
+                    }
+                }
+            }
+
+            // ── FOOTER ────────────────────────────────────────────────────
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let p = 1; p <= totalPages; p++) {
+                doc.setPage(p);
+                doc.setDrawColor(229, 231, 235);
+                doc.setLineWidth(0.4);
+                doc.line(margin, H - 12, W - margin, H - 12);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor(156, 163, 175);
+                doc.text('Generado por Byfrost • IntegradorHub', margin, H - 7);
+                doc.text(`${p} / ${totalPages}`, W - margin, H - 7, { align: 'right' });
+            }
+
+            const safeName = `Proyecto_${(project.titulo || 'Export').replace(/[^a-zA-Z0-9\u00C0-\u024F\s_-]/g, '').replace(/\s+/g, '_')}.pdf`;
+            doc.save(safeName);
         } catch (error) {
             console.error('Error exportando PDF:', error);
-            alert(`Hubo un error al generar el PDF: ${error.message || error}`);
+            alert(`Error al exportar: ${error.message || error}`);
         } finally {
             setIsExporting(false);
         }
@@ -64,138 +395,13 @@ export function ProjectPDFExportButton({ project, creadorNombre }) {
     if (!project) return null;
 
     return (
-        <>
-            {/* The Trigger Button */}
-            <button
-                onClick={handleExportPDF}
-                disabled={isExporting}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-xl shadow-md hover:bg-black transition-all disabled:opacity-70 disabled:cursor-wait"
-            >
-                {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                {isExporting ? 'Generando...' : 'Exportar PDF'}
-            </button>
-
-            {/* Hidden Template for PDF Generation */}
-            <div className="absolute top-[-9999px] left-[-9999px] w-[800px]">
-                <div
-                    ref={pdfTemplateRef}
-                    className="p-12 pdf-template-container"
-                    style={{ width: '800px', minHeight: '1120px', position: 'relative', backgroundColor: '#ffffff', color: '#111827' }} // A4 aspect-ratio approximation
-                >
-                    <style>{`
-                        .pdf-template-container * {
-                            border-color: #e5e7eb !important;
-                            color: inherit;
-                        }
-                        .pdf-template-container .prose * {
-                            color: #374151 !important;
-                        }
-                    `}</style>
-
-                    {/* Brand / Header */}
-                    <div className="flex justify-between items-start pb-8 mb-8" style={{ borderBottomWidth: '2px', borderBottomStyle: 'solid', borderBottomColor: '#f3f4f6' }}>
-                        <div>
-                            <h1 className="text-4xl font-extrabold tracking-tight mb-2" style={{ color: '#111827' }}>
-                                {project.titulo || 'Sin Título'}
-                            </h1>
-                            <div className="font-medium text-lg flex items-center gap-2" style={{ color: '#6b7280' }}>
-                                📄 {project.materia} • Ciclo {project.ciclo}
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-3 text-right">
-                            <div className="p-3 rounded-xl shadow-sm" style={{ width: '116px', height: '116px', backgroundColor: '#f9fafb', borderWidth: '1px', borderStyle: 'solid', borderColor: '#e5e7eb' }}>
-                                <QRCode value={publicUrl} size={90} level="H" viewBox={`0 0 256 256`} fgColor="#000000" bgColor="#f9fafb" />
-                            </div>
-                            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#9ca3af' }}>
-                                Escanea para ver en línea
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Metadata: Leader & Team */}
-                    <div className="grid grid-cols-2 gap-8 mb-10">
-                        <div className="p-6 rounded-2xl" style={{ backgroundColor: '#eff6ff', borderWidth: '1px', borderStyle: 'solid', borderColor: '#dbeafe' }}>
-                            <h3 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#3b82f6' }}>Responsable</h3>
-                            <p className="text-xl font-bold" style={{ color: '#1f2937' }}>{creadorNombre}</p>
-                            <p className="text-sm font-medium mt-1" style={{ color: '#6b7280' }}>Líder de Proyecto</p>
-                        </div>
-                        <div className="p-6 rounded-2xl" style={{ backgroundColor: '#f9fafb', borderWidth: '1px', borderStyle: 'solid', borderColor: '#f3f4f6' }}>
-                            <h3 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6b7280' }}>Tecnologías Principales</h3>
-                            <div className="flex flex-wrap gap-2">
-                                {project.stackTecnologico?.length > 0 ? (
-                                    project.stackTecnologico.map((tech, i) => (
-                                        <span key={i} className="px-3 py-1 rounded-md text-sm font-bold shadow-sm" style={{ backgroundColor: '#ffffff', borderWidth: '1px', borderStyle: 'solid', borderColor: '#e5e7eb', color: '#4b5563' }}>
-                                            {tech}
-                                        </span>
-                                    ))
-                                ) : (
-                                    <span className="text-sm" style={{ color: '#9ca3af' }}>No especificado</span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Team Members */}
-                    {project.members && project.members.length > 0 && (
-                        <div className="mb-10">
-                            <h3 className="text-lg font-bold pb-2 mb-4" style={{ color: '#1f2937', borderBottomWidth: '1px', borderBottomStyle: 'solid', borderBottomColor: '#f3f4f6' }}>Equipo Acópsula (Squad)</h3>
-                            <div className="flex flex-wrap gap-4">
-                                {project.members.map((m, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 px-4 py-2 rounded-full" style={{ backgroundColor: '#f9fafb', borderWidth: '1px', borderStyle: 'solid', borderColor: '#f3f4f6' }}>
-                                        <div style={{ width: '24px', height: '24px', lineHeight: '24px', textAlign: 'center', borderRadius: '50%', backgroundColor: '#e0e7ff', color: '#4338ca', fontWeight: 'bold', fontSize: '12px', display: 'inline-block' }}>
-                                            {(m.nombre || 'U')[0].toUpperCase()}
-                                        </div>
-                                        <span className="text-sm font-semibold" style={{ color: '#374151' }}>
-                                            {m.nombre && m.nombre !== 'Usuario' ? m.nombre : m.email}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Canvas Content (Description & Images) */}
-                    <div className="mt-8">
-                        <h3 className="text-lg font-bold pb-2 mb-6" style={{ color: '#1f2937', borderBottomWidth: '1px', borderBottomStyle: 'solid', borderBottomColor: '#f3f4f6' }}>Detalles del Proyecto</h3>
-                        <div className="space-y-6">
-                            {validBlocks.length > 0 ? (
-                                validBlocks.map((block, idx) => {
-                                    if (block.type === 'text') {
-                                        return (
-                                            <div
-                                                key={idx}
-                                                // Retain prose for sizing, but colors handled by style tag
-                                                className="prose prose-sm max-w-none leading-relaxed"
-                                                dangerouslySetInnerHTML={{ __html: block.content }}
-                                            />
-                                        );
-                                    } else if (block.type === 'image') {
-                                        return (
-                                            <div key={idx} className="my-6 rounded-xl overflow-hidden shadow-sm" style={{ borderWidth: '1px', borderStyle: 'solid', borderColor: '#f3f4f6' }}>
-                                                <img
-                                                    src={block.content}
-                                                    alt="Project visualization"
-                                                    className="w-full h-auto object-contain max-h-[500px]"
-                                                />
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })
-                            ) : (
-                                <p className="italic" style={{ color: '#9ca3af' }}>No hay contenido documentado todavía.</p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="absolute bottom-12 left-12 right-12 text-center pt-6" style={{ borderTopWidth: '1px', borderTopStyle: 'solid', borderTopColor: '#f3f4f6' }}>
-                        <p className="text-sm font-medium" style={{ color: '#9ca3af' }}>
-                            Generado automáticamente por Byfrost • IntegradorHub
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </>
+        <button
+            onClick={handleExportPDF}
+            disabled={isExporting}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-xl shadow-md hover:bg-black transition-all disabled:opacity-70 disabled:cursor-wait"
+        >
+            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+            {isExporting ? 'Generando...' : 'Exportar PDF'}
+        </button>
     );
 }

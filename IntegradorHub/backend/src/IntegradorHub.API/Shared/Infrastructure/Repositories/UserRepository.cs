@@ -102,4 +102,15 @@ public class UserRepository : IUserRepository
             ) ?? false
         );
     }
+
+    public async Task UpdateSocialLinksAsync(string userId, Dictionary<string, string> redesSociales)
+    {
+        var timestamp = DateTime.UtcNow.ToString("o");
+        var updates = new Dictionary<string, object>
+        {
+            { "redes_sociales", redesSociales },
+            { "updated_at", timestamp }
+        };
+        await _collection.Document(userId).UpdateAsync(updates);
+    }
 }

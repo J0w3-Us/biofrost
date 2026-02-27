@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './features/auth/hooks/useAuth';
 import { GroupSelector } from './features/auth/components/GroupSelector';
 import { DashboardLayout } from './features/dashboard/components/DashboardLayout';
@@ -26,8 +27,8 @@ function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-2 border-gray-400 border-t-gray-900 rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0f1117]">
+        <div className="w-8 h-8 border-2 border-gray-400 dark:border-slate-600 border-t-gray-900 dark:border-t-white rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -37,90 +38,93 @@ function ProtectedRoute({ children }) {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Landing page es el Login */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<LoginPage />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Landing page es el Login */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Layout Principal con Sidebar */}
-          <Route element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/showcase" element={<ShowcasePage />} />
-            <Route path="/ranking" element={<RankingPage />} />
-            <Route element={<RoleGuard allowedRoles={['Alumno', 'Docente']} />}>
-              <Route path="/team" element={<TeamPage />} />
-              <Route path="/evaluations" element={<EvaluationsPage />} />
+            {/* Layout Principal con Sidebar */}
+            <Route element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/showcase" element={<ShowcasePage />} />
+              <Route path="/ranking" element={<RankingPage />} />
+              <Route element={<RoleGuard allowedRoles={['Alumno', 'Docente']} />}>
+                <Route path="/team" element={<TeamPage />} />
+                <Route path="/evaluations" element={<EvaluationsPage />} />
+              </Route>
+              <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/profile/:userId" element={<ProfilePage />} />
             </Route>
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-          </Route>
 
-          <Route
-            path="/project/:id/editor"
-            element={
-              <ProtectedRoute>
-                <ProjectEditorPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/setup"
-            element={
-              <ProtectedRoute>
-                <GroupSelector />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute>
-                <AdminPanel />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/materias"
-            element={
-              <ProtectedRoute>
-                <MateriasPanel />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/students"
-            element={
-              <ProtectedRoute>
-                <StudentsPanel />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/teachers"
-            element={
-              <ProtectedRoute>
-                <TeachersPanel />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/carreras"
-            element={
-              <ProtectedRoute>
-                <CarrerasPanel />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            <Route
+              path="/project/:id/editor"
+              element={
+                <ProtectedRoute>
+                  <ProjectEditorPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/setup"
+              element={
+                <ProtectedRoute>
+                  <GroupSelector />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminPanel />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/materias"
+              element={
+                <ProtectedRoute>
+                  <MateriasPanel />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/students"
+              element={
+                <ProtectedRoute>
+                  <StudentsPanel />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/teachers"
+              element={
+                <ProtectedRoute>
+                  <TeachersPanel />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/carreras"
+              element={
+                <ProtectedRoute>
+                  <CarrerasPanel />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

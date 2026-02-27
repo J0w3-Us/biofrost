@@ -21,35 +21,14 @@ public class UpdateProjectHandler : IRequestHandler<UpdateProjectCommand, Update
         if (project == null)
             throw new KeyNotFoundException("Proyecto no encontrado");
 
-        // Validar permisos: Solo el líder o miembros pueden editar (simplificado por ahora, idealmente solo líder)
-        // Por ahora permitimos a cualquier miembro del equipo editar para colaboración en tiempo real
-        if (project.LiderId != request.RequestingUserId && (project.MiembrosIds == null || !project.MiembrosIds.Contains(request.RequestingUserId)))
-        {
-             // Opcional: Permitir edición si es admin o docente (fuera del alcance actual)
-             // throw new UnauthorizedAccessException("No tienes permisos para editar este proyecto");
-             // Nota: En la implementación actual del frontend, a veces no mandamos el UserId correctamente en el body, 
-             // así que por robustez en esta fase de desarrollo, si el proyecto existe, permitimos el update.
-             // TODO: Reforzar seguridad con ClaimsPrincipal en el Controller.
-        }
-
-        // Actualizar campos
         project.Titulo = request.Titulo;
         project.VideoUrl = request.VideoUrl;
-        
-        // Actualizar Canvas
-        // La entidad Project debe tener una propiedad para esto. 
-        // Si usamos 'CanvasBlocks' en el frontend, mapearlo a la entidad.
-        // Asumiendo que la entidad tiene 'Canvas' o 'CanvasBlocks'.
-        // Revisaremos la entidad Project si falla la compilación, pero por ahora asumimos 'Canvas'.
         project.CanvasBlocks = SanitizeBlocks(request.CanvasBlocks);
 
         if (request.EsPublico.HasValue)
-        {
             project.EsPublico = request.EsPublico.Value;
-        } 
-        
-        project.UpdatedAt = Timestamp.FromDateTime(DateTime.UtcNow);
 
+        project.UpdatedAt = Timestamp.FromDateTime(DateTime.UtcNow);
         await _repository.UpdateAsync(project);
 
         return new UpdateProjectResponse(true, "Proyecto actualizado correctamente");
@@ -63,43 +42,60 @@ public class UpdateProjectHandler : IRequestHandler<UpdateProjectCommand, Update
         {
             if (block.Metadata != null && block.Metadata.Count > 0)
             {
-                var newMetadata = new Dictionary<string, object?>();
-                foreach (var kvp in block.Metadata)
-                {
-                    if (kvp.Value is JsonElement element)
-                    {
-                        switch (element.ValueKind)
-                        {
-                            case JsonValueKind.String:
-                                newMetadata[kvp.Key] = element.GetString() ?? "";
-                                break;
-                            case JsonValueKind.Number:
-                                if (element.TryGetInt64(out long l)) newMetadata[kvp.Key] = l;
-                                else if (element.TryGetDouble(out double d)) newMetadata[kvp.Key] = d;
-                                else newMetadata[kvp.Key] = 0;
-                                break;
-                            case JsonValueKind.True:
-                                newMetadata[kvp.Key] = true;
-                                break;
-                            case JsonValueKind.False:
-                                newMetadata[kvp.Key] = false;
-                                break;
-                            case JsonValueKind.Null:
-                                newMetadata[kvp.Key] = null;
-                                break;
-                            default:
-                                newMetadata[kvp.Key] = element.ToString();
-                                break;
-                        }
-                    }
-                    else
-                    {
-                        newMetadata[kvp.Key] = kvp.Value;
-                    }
-                }
-                block.Metadata = newMetadata;
+                block.Metadata = FlattenMetadata(block.Metadata);
             }
         }
         return blocks;
+    }
+
+    // Converts metadata so it can be saved to Firestore.
+    // Firestore does NOT support arrays-of-arrays (e.g. table rows = string[][]).
+    // Fix: serialize any nested objects/arrays that are themselves complex 
+    // (like 'table') into a JSON string. Simple primitives are kept as-is.
+    private Dictionary<string, object> FlattenMetadata(Dictionary<string, object> metadata)
+    {
+        var result = new Dictionary<string, object>();
+
+        foreach (var kvp in metadata)
+        {
+            if (kvp.Value is JsonElement element)
+            {
+                switch (element.ValueKind)
+                {
+                    case JsonValueKind.String:
+                        result[kvp.Key] = element.GetString() ?? string.Empty;
+                        break;
+                    case JsonValueKind.Number:
+                        if (element.TryGetInt64(out long l)) result[kvp.Key] = l;
+                        else if (element.TryGetDouble(out double d)) result[kvp.Key] = d;
+                        else result[kvp.Key] = 0L;
+                        break;
+                    case JsonValueKind.True:
+                        result[kvp.Key] = true;
+                        break;
+                    case JsonValueKind.False:
+                        result[kvp.Key] = false;
+                        break;
+                    case JsonValueKind.Null:
+                    case JsonValueKind.Undefined:
+                        // skip nulls — Firestore fields must not be null in a map
+                        break;
+                    case JsonValueKind.Object:
+                    case JsonValueKind.Array:
+                        // Firestore does not support nested arrays (arrays of arrays).
+                        // Serialize complex nested structures as a JSON string so they
+                        // round-trip safely. The frontend already handles this via getTableData.
+                        result[kvp.Key] = element.GetRawText();
+                        break;
+                }
+            }
+            else if (kvp.Value != null)
+            {
+                // Already a native type (bool, long, string) — pass through
+                result[kvp.Key] = kvp.Value;
+            }
+        }
+
+        return result;
     }
 }

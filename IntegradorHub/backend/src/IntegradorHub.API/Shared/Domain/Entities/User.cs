@@ -61,4 +61,7 @@ public class User
     
     [FirestoreProperty("is_first_login")]
     public bool IsFirstLogin { get; set; } = true;
+    
+    [FirestoreProperty("redes_sociales")]
+    public Dictionary<string, string>? RedesSociales { get; set; } = new();
 }

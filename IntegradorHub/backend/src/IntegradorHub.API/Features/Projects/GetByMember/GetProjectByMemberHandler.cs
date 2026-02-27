@@ -64,8 +64,6 @@ public class GetProjectByMemberHandler : IRequestHandler<GetProjectByMemberQuery
             project.StackTecnologico,
             project.RepositorioUrl,
             project.VideoUrl,
-            project.DemoUrl,
-            project.ThumbnailUrl,
             project.CanvasBlocks,
             members,
             project.CreatedAt.ToDateTime(),

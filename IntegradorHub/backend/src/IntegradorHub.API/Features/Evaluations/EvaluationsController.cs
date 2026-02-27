@@ -2,7 +2,6 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using IntegradorHub.API.Features.Evaluations.Create;
 using IntegradorHub.API.Features.Evaluations.GetByProject;
-using IntegradorHub.API.Features.Evaluations.GetByDocente;
 using IntegradorHub.API.Features.Evaluations.Visibility;
 
 namespace IntegradorHub.API.Features.Evaluations;
@@ -50,18 +49,6 @@ public class EvaluationsController : ControllerBase
     public async Task<ActionResult<IEnumerable<EvaluationDto>>> GetByProject(string projectId)
     {
         var query = new GetEvaluationsByProjectQuery(projectId);
-        var evaluations = await _mediator.Send(query);
-        return Ok(evaluations);
-    }
-
-    /// <summary>
-    /// Obtiene el historial de evaluaciones emitidas por un docente.
-    /// Consumido por la app móvil Biofrost en ProfilePage.
-    /// </summary>
-    [HttpGet("docente/{docenteId}")]
-    public async Task<ActionResult<IEnumerable<EvaluationDto>>> GetByDocente(string docenteId)
-    {
-        var query = new GetEvaluationsByDocenteQuery(docenteId);
         var evaluations = await _mediator.Send(query);
         return Ok(evaluations);
     }
