@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/features/project_detail/widgets/video_player_widget.dart';
 import 'package:biofrost/core/config/app_config.dart';
+import 'package:flutter/services.dart';
 
 String _resolveSupabaseUrl(String url) {
   if (url.trim().isEmpty) return url;
@@ -15,6 +16,18 @@ String _resolveSupabaseUrl(String url) {
     path = path.substring(AppConfig.supabaseBucket.length + 1);
   }
   return AppConfig.storageUrl(path);
+}
+
+void _pushFullScreen(BuildContext context, String url, String title) {
+  Navigator.of(context).push(PageRouteBuilder(
+    opaque: false,
+    barrierColor: Colors.black,
+    pageBuilder: (_, __, ___) => _FullScreenVideoPage(
+      videoUrl: url,
+      tag: url,
+      title: title,
+    ),
+  ));
 }
 
 /// Card dedicado exclusivamente para mostrar videos del proyecto
@@ -120,16 +133,23 @@ class ProjectVideoCard extends StatelessWidget {
 
           // ── Contenido ──────────────────────────────────────────
           if (hasVideo) ...[
-            // Video principal
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(AppTheme.radiusMD),
-              ),
-              child: VideoPlayerWidget(
-                videoUrl: _resolveSupabaseUrl(primaryVideoUrl!),
-                autoPlay: false,
-                showControls: true,
-                aspectRatio: 16 / 9,
+            // Video principal (tap para ver full-screen)
+            Hero(
+              tag: primaryVideoUrl ?? projectTitle,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(AppTheme.radiusMD),
+                ),
+                child: VideoPlayerWidget(
+                  videoUrl: _resolveSupabaseUrl(primaryVideoUrl!),
+                  autoPlay: false,
+                  showControls: true,
+                  aspectRatio: 16 / 9,
+                  // Delegate heavy loading to full-screen. Inline will show
+                  // placeholder and call this onTap when tapped.
+                  onTap: () => _pushFullScreen(context,
+                      _resolveSupabaseUrl(primaryVideoUrl!), projectTitle),
+                ),
               ),
             ),
 
@@ -168,7 +188,7 @@ class ProjectVideoCard extends StatelessWidget {
               padding: const EdgeInsets.all(AppTheme.sp16),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded,
+                  const Icon(Icons.info_outline_rounded,
                       size: 14, color: AppTheme.textDisabled),
                   const SizedBox(width: AppTheme.sp6),
                   Expanded(
@@ -298,5 +318,95 @@ class _AdditionalVideoTile extends StatelessWidget {
     if (uri != null && await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+}
+
+class _FullScreenVideoPage extends StatefulWidget {
+  const _FullScreenVideoPage(
+      {required this.videoUrl, required this.tag, required this.title});
+
+  final String videoUrl;
+  final String tag;
+  final String title;
+
+  @override
+  State<_FullScreenVideoPage> createState() => _FullScreenVideoPageState();
+}
+
+class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Allow both orientations until the video tells us its real ratio.
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  @override
+  void dispose() {
+    // Always restore all orientations when leaving full-screen.
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    super.dispose();
+  }
+
+  /// Called by [VideoPlayerWidget] after the video is initialized.
+  /// Locks the orientation to match the video's native format.
+  void _onAspectRatioResolved(double ratio) {
+    if (!mounted) return;
+    if (ratio < 1.0) {
+      // Portrait video (e.g. 9:16 selfie/pitch recorded vertically)
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    } else {
+      // Landscape video (widescreen / 16:9)
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      // Restore orientations when the user swipes back.
+      onPopInvokedWithResult: (_, __) =>
+          SystemChrome.setPreferredOrientations(DeviceOrientation.values),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+              Navigator.of(context).pop();
+            },
+          ),
+          title: Text(widget.title, style: const TextStyle(fontSize: 16)),
+        ),
+        // Fill the screen and let Chewie respect the native aspect ratio.
+        body: Center(
+          child: Hero(
+            tag: widget.tag,
+            child: VideoPlayerWidget(
+              videoUrl: widget.videoUrl,
+              autoPlay: true,
+              showControls: true,
+              // No fixed aspectRatio — VideoPlayerWidget will use the
+              // video's native ratio once initialized.
+              onAspectRatioResolved: _onAspectRatioResolved,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

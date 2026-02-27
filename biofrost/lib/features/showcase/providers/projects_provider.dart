@@ -2,20 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:biofrost/core/cache/cache_service.dart';
 import 'package:biofrost/core/errors/app_exceptions.dart';
-import 'package:biofrost/core/models/project_read_model.dart';
-import 'package:biofrost/core/repositories/project_repository.dart';
+import 'package:biofrost/features/showcase/data/project_repository.dart';
+import 'package:biofrost/features/showcase/domain/models/project_read_model.dart';
+import 'package:biofrost/features/project_detail/domain/models/project_detail_read_model.dart';
 import 'package:biofrost/core/services/analytics_service.dart';
 import 'package:biofrost/core/services/connectivity_service.dart';
 import 'package:biofrost/features/auth/providers/auth_provider.dart';
-
-// ── Provider base: Repositorio ──────────────────────────────────────────
-
-final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
-  return ProjectRepository(
-    apiService: ref.watch(apiServiceProvider),
-    cacheService: ref.watch(cacheServiceProvider),
-  );
-});
 
 // ── Estado del módulo Showcase ──────────────────────────────────────────
 

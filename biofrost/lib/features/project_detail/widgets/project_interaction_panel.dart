@@ -1,28 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:biofrost/core/models/comment_read_model.dart';
-import 'package:biofrost/core/models/evaluation_read_model.dart';
+import 'package:biofrost/features/evaluations/data/evaluation_repository.dart';
+import 'package:biofrost/features/evaluations/domain/models/evaluation_read_model.dart';
+import 'package:biofrost/features/auth/domain/models/user_read_model.dart';
 import 'package:biofrost/core/services/connectivity_service.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/core/widgets/ui_kit.dart';
+import 'package:biofrost/core/utils/sanitize.dart';
 import 'package:biofrost/features/auth/providers/auth_provider.dart';
 import 'package:biofrost/features/evaluations/providers/evaluation_provider.dart';
-import 'package:biofrost/features/project_detail/providers/comments_provider.dart';
+import 'package:biofrost/features/project_detail/domain/models/star_rating_read_model.dart';
 import 'package:biofrost/features/project_detail/providers/star_rating_provider.dart';
+import 'package:biofrost/features/showcase/providers/projects_provider.dart';
 
 /// Panel unificado de interacción del proyecto.
 ///
-/// Consolida en un solo widget las 3 secciones que antes eran independientes:
+/// Secciones:
 ///   ★  Calificación comunitaria (estrellas) — visible para todos.
-///   📋  Evaluación docente (form + historial) — solo Docentes autenticados.
-///   💬  Retroalimentación (comentarios + sugerencias) — todos los usuarios.
+///   💬  Comentarios (form + historial) — requiere sesión para enviar.
 ///
 /// CQRS:
-///   Query  : [starRatingProvider], [evaluationPanelProvider], [commentsProvider].
+///   Query  : [starRatingProvider], [evaluationPanelProvider].
 ///   Command: [StarRatingNotifier.submitRating],
-///            [EvaluationPanelNotifier.submitEvaluation],
-///            [CommentsNotifier.postComment].
+///            [EvaluationPanelNotifier.submitEvaluation].
 class ProjectInteractionPanel extends ConsumerStatefulWidget {
   const ProjectInteractionPanel({
     super.key,
@@ -38,244 +40,67 @@ class ProjectInteractionPanel extends ConsumerStatefulWidget {
       _ProjectInteractionPanelState();
 }
 
-enum _PostType { comentario, sugerencia }
-
 class _ProjectInteractionPanelState
     extends ConsumerState<ProjectInteractionPanel> {
-  final _commentCtrl = TextEditingController();
-  _PostType _postType = _PostType.comentario;
-
-  @override
-  void dispose() {
-    _commentCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitFeedback() async {
-    if (_commentCtrl.text.trim().isEmpty) return;
-    FocusScope.of(context).unfocus();
-
-    if (_postType == _PostType.comentario) {
-      final ok = await ref
-          .read(commentsProvider(widget.projectId).notifier)
-          .postComment(widget.projectId);
-      if (ok && mounted) _commentCtrl.clear();
-    } else {
-      final user = ref.read(currentUserProvider);
-      if (user == null) return;
-      final notifier =
-          ref.read(evaluationPanelProvider(widget.projectId).notifier);
-      notifier.setTipo('sugerencia');
-      notifier.setContenido(_commentCtrl.text.trim());
-      final success = await notifier.submitEvaluation(
-        projectId: widget.projectId,
-        docenteId: user.userId,
-        docenteNombre: user.nombreCompleto,
-        docenteTitularId: widget.docenteTitularId,
-      );
-      if (success && mounted) {
-        _commentCtrl.clear();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Sugerencia enviada.'),
-          backgroundColor: AppTheme.success,
-          duration: Duration(seconds: 3),
-        ));
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final starState = ref.watch(starRatingProvider(widget.projectId));
     final evalState = ref.watch(evaluationPanelProvider(widget.projectId));
-    final commentsState = ref.watch(commentsProvider(widget.projectId));
     final user = ref.watch(currentUserProvider);
-    final isDocente = ref.watch(isDocenteProvider);
-    final isAuthenticated = user != null;
-    final isOnline = ref.watch(connectivityProvider);
-
-    final nonOfficialEvals =
-        evalState.evaluations.where((e) => e.tipo != 'oficial').toList();
-
-    final isCommentSubmitting = _postType == _PostType.comentario
-        ? commentsState.isSubmitting
-        : evalState.isSubmitting;
-    final canPublish =
-        _commentCtrl.text.isNotEmpty && !isCommentSubmitting && isOnline;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ══════════════════════════════════════════════════════════════
-        // ★  CALIFICACIÓN COMUNITARIA
+        // 💬  COMENTARIOS (form docente + historial)
         // ══════════════════════════════════════════════════════════════
-        const BioDivider(label: 'CALIFICACIÓN'),
-        const SizedBox(height: AppTheme.sp16),
-        _RatingBlock(
-          projectId: widget.projectId,
-          starState: starState,
-          isAuthenticated: isAuthenticated,
-        ),
-
-        // ══════════════════════════════════════════════════════════════
-        // 📋  EVALUACIÓN (solo Docentes)
-        // ══════════════════════════════════════════════════════════════
-        if (isDocente && user != null) ...[
-          const SizedBox(height: AppTheme.sp24),
-          const BioDivider(label: 'EVALUACIÓN'),
-          const SizedBox(height: AppTheme.sp16),
-          _EvalBlock(
-            projectId: widget.projectId,
-            docenteTitularId: widget.docenteTitularId,
-            evalState: evalState,
-            user: user,
-          ),
-        ],
-
-        // ══════════════════════════════════════════════════════════════
-        // 💬  RETROALIMENTACIÓN
-        // ══════════════════════════════════════════════════════════════
-        const SizedBox(height: AppTheme.sp24),
         const BioDivider(label: 'RETROALIMENTACIÓN'),
         const SizedBox(height: AppTheme.sp16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header con contador
-            Row(
+
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppTheme.surface1,
+            borderRadius: AppTheme.bLG,
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.sp16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.forum_outlined,
-                    size: 16, color: AppTheme.textDisabled),
-                const SizedBox(width: AppTheme.sp6),
-                const Text(
-                  'Retroalimentación',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textDisabled,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                if (!commentsState.isLoading &&
-                    (commentsState.comments.isNotEmpty ||
-                        nonOfficialEvals.isNotEmpty)) ...[
-                  const SizedBox(width: AppTheme.sp8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.sp8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surface2,
-                      borderRadius: AppTheme.bFull,
-                      border: Border.all(color: AppTheme.border),
-                    ),
-                    child: Text(
-                      '${commentsState.comments.length + nonOfficialEvals.length}',
-                      style: const TextStyle(
+                // Header
+                const Row(
+                  children: [
+                    Icon(Icons.forum_outlined,
+                        size: 16, color: AppTheme.textDisabled),
+                    SizedBox(width: AppTheme.sp6),
+                    Text(
+                      'Comentarios',
+                      style: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.textDisabled,
+                        letterSpacing: 0.3,
                       ),
                     ),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: AppTheme.sp16),
+                  ],
+                ),
+                const SizedBox(height: AppTheme.sp14),
 
-            // Toggle Comentario / Sugerencia (solo Docentes autenticados)
-            if (isDocente && isAuthenticated) ...[
-              Row(
-                children: [
-                  _TypeChip(
-                    label: 'Comentario',
-                    icon: Icons.chat_bubble_outline_rounded,
-                    isSelected: _postType == _PostType.comentario,
-                    onTap: () =>
-                        setState(() => _postType = _PostType.comentario),
-                  ),
-                  const SizedBox(width: AppTheme.sp8),
-                  _TypeChip(
-                    label: 'Sugerencia',
-                    icon: Icons.lightbulb_outline_rounded,
-                    isSelected: _postType == _PostType.sugerencia,
-                    onTap: () =>
-                        setState(() => _postType = _PostType.sugerencia),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppTheme.sp12),
-            ],
-
-            // Campo de entrada
-            _InputArea(
-              ctrl: _commentCtrl,
-              isAuthenticated: isAuthenticated,
-              isSubmitting: isCommentSubmitting,
-              canPublish: canPublish,
-              isOnline: isOnline,
-              hintText: isAuthenticated
-                  ? (_postType == _PostType.sugerencia
-                      ? 'Escribe tu sugerencia para el equipo...'
-                      : 'Deja un comentario sobre este proyecto...')
-                  : 'Inicia sesión para comentar',
-              onTextChanged: (t) {
-                if (_postType == _PostType.comentario) {
-                  ref
-                      .read(commentsProvider(widget.projectId).notifier)
-                      .setDraft(t);
-                }
-                setState(() {});
-              },
-              onPublish: _submitFeedback,
-            ),
-
-            const SizedBox(height: AppTheme.sp24),
-
-            // Feed: comentarios + sugerencias de docentes
-            if (commentsState.isLoading)
-              const _CommentsSkeleton()
-            else if (commentsState.hasError)
-              BioErrorView(
-                message: 'Error al cargar comentarios.',
-                onRetry: () => ref
-                    .read(commentsProvider(widget.projectId).notifier)
-                    .reload(widget.projectId),
-              )
-            else ...[
-              if (commentsState.comments.isNotEmpty)
-                ...commentsState.comments
-                    .map((c) => _CommentBubble(comment: c)),
-              if (isDocente) ...[
-                if (evalState.isLoading)
-                  const _EvalFeedSkeleton()
-                else if (evalState.hasError)
-                  BioErrorView(
-                    message: evalState.error?.message ??
-                        'Error al cargar evaluaciones.',
-                    onRetry: () => ref
-                        .read(
-                            evaluationPanelProvider(widget.projectId).notifier)
-                        .load(widget.projectId, forceRefresh: true),
+                // Contenido: form + historial (maneja internamente si hay user)
+                if (user != null)
+                  _EvalBlock(
+                    projectId: widget.projectId,
+                    docenteTitularId: widget.docenteTitularId,
+                    evalState: evalState,
+                    user: user,
                   )
                 else
-                  ...nonOfficialEvals.map(
-                    (e) => _FeedEvalCard(
-                      evaluation: e,
-                      projectId: widget.projectId,
-                      userId: user?.userId ?? '',
-                    ),
-                  ),
+                  const _VisitorRatingPrompt(),
               ],
-              if (commentsState.comments.isEmpty &&
-                  (!isDocente ||
-                      (!evalState.isLoading &&
-                          !evalState.hasError &&
-                          nonOfficialEvals.isEmpty)))
-                const _EmptyFeed(),
-            ],
-          ],
+            ),
+          ),
         ),
       ],
     );
@@ -283,115 +108,291 @@ class _ProjectInteractionPanelState
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// ★  RATING BLOCK
+// ★  RATING BOTTOM BAR — fijo en la parte inferior del Scaffold
 // ══════════════════════════════════════════════════════════════════════════
 
-class _RatingBlock extends StatelessWidget {
-  const _RatingBlock({
+/// Barra de calificación comunitaria anclada al fondo de la pantalla.
+class ProjectRatingBottomBar extends ConsumerWidget {
+  const ProjectRatingBottomBar({super.key, required this.projectId});
+  final String projectId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final starState = ref.watch(starRatingProvider(projectId));
+    final isAuthenticated = ref.watch(currentUserProvider) != null;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.surface1,
+        border: Border(
+          top: BorderSide(color: AppTheme.border, width: 1),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.sp20,
+            vertical: AppTheme.sp12,
+          ),
+          child: starState.isLoading
+              ? const _RatingBarSkeleton()
+              : (starState.hasError || !starState.hasData)
+                  ? const SizedBox.shrink()
+                  : _RatingBarContent(
+                      projectId: projectId,
+                      rating: starState.rating!,
+                      isAuthenticated: isAuthenticated,
+                      isSubmitting: starState.isSubmitting,
+                    ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RatingBarContent extends ConsumerWidget {
+  const _RatingBarContent({
     required this.projectId,
-    required this.starState,
+    required this.rating,
     required this.isAuthenticated,
+    required this.isSubmitting,
   });
 
   final String projectId;
-  final StarRatingState starState;
+  final StarRatingReadModel rating;
   final bool isAuthenticated;
+  final bool isSubmitting;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(starRatingProvider(projectId), (prev, next) {
+      if (next.submitError != null && prev?.submitError != next.submitError) {
+        // RF-TOAST: Error de red con botón Reintentar (spec §4.4 Toast System)
+        context.showError(
+          'No se pudo enviar la calificación: ${next.submitError!.message}',
+          onRetry: () =>
+              ref.read(starRatingProvider(projectId).notifier).reload(),
+        );
+      }
+    });
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Score numérico
+        Text(
+          rating.averageDisplay,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textPrimary,
+            height: 1,
+            letterSpacing: -1,
+          ),
+        ),
+        const SizedBox(width: AppTheme.sp10),
+        Container(
+            width: 1,
+            height: 32,
+            color: AppTheme.border,
+            margin: const EdgeInsets.symmetric(horizontal: AppTheme.sp10)),
+
+        // Estrellas interactivas o de lectura según auth
+        if (isAuthenticated)
+          _BottomBarStars(
+            projectId: projectId,
+            userStars: rating.userStars,
+            isSubmitting: isSubmitting,
+          )
+        else
+          _StarBar(average: rating.average),
+
+        const SizedBox(width: AppTheme.sp10),
+        Container(
+            width: 1,
+            height: 32,
+            color: AppTheme.border,
+            margin: const EdgeInsets.symmetric(horizontal: AppTheme.sp10)),
+
+        // Contador de votos
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${rating.totalVotes}',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'votos',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 10,
+                color: AppTheme.textDisabled,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _BottomBarStars extends ConsumerStatefulWidget {
+  const _BottomBarStars({
+    required this.projectId,
+    required this.userStars,
+    required this.isSubmitting,
+  });
+
+  final String projectId;
+  final int? userStars;
+  final bool isSubmitting;
+
+  @override
+  ConsumerState<_BottomBarStars> createState() => _BottomBarStarsState();
+}
+
+class _BottomBarStarsState extends ConsumerState<_BottomBarStars> {
+  int _hover = 0;
+
+  static const double _starSize = 28.0;
+  static const double _starPadH = 5.0;
+  static const double _slotW = _starSize + _starPadH * 2;
+
+  int _starFromDx(double dx) => (dx / _slotW).floor().clamp(0, 4) + 1;
+
+  String _labelFor(int s) => switch (s) {
+        5 => 'Excelente',
+        4 => 'Muy bueno',
+        3 => 'Bueno',
+        2 => 'Regular',
+        _ => 'Bajo',
+      };
+
+  Future<void> _submit(int stars) async {
+    // RF-HAPTIC: feedback táctil al seleccionar estrella (spec §6 Evaluación)
+    HapticFeedback.selectionClick();
+
+    // RF-TOAST-WARN: Advertencia si ya existe evaluación previa (spec §2.1 Anti-Duplicados)
+    if (widget.userStars != null && mounted) {
+      context.showWarning(
+        'Ya calificaste este proyecto. Tu calificación anterior será reemplazada.',
+      );
+    }
+
+    // RF-MODAL: Confirmación antes de enviar (spec §6 Evaluación)
+    final asyncProject = ref.read(projectDetailProvider(widget.projectId));
+    final projectTitle = asyncProject.valueOrNull?.titulo ?? 'este proyecto';
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _EvalConfirmDialog(
+        stars: stars,
+        projectTitle: projectTitle,
+        isUpdate: widget.userStars != null,
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _hover = 0);
+    ref.read(starRatingProvider(widget.projectId).notifier).submitRating(stars);
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (starState.isLoading) return const _RatingSkeleton();
-    if (starState.hasError || !starState.hasData)
-      return const SizedBox.shrink();
+    if (widget.isSubmitting) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child:
+            CircularProgressIndicator(strokeWidth: 2, color: AppTheme.warning),
+      );
+    }
 
-    final rating = starState.rating!;
+    final active = _hover > 0 ? _hover : (widget.userStars ?? 0);
+    final label = _hover > 0
+        ? _labelFor(_hover)
+        : (widget.userStars != null ? _labelFor(widget.userStars!) : null);
 
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.sp16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface1,
-        borderRadius: AppTheme.bLG,
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Encabezado
-          const Row(
-            children: [
-              Icon(Icons.star_rounded, size: 16, color: AppTheme.warning),
-              SizedBox(width: AppTheme.sp6),
-              Text(
-                'Calificación de la comunidad',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textDisabled,
-                  letterSpacing: 0.3,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onHorizontalDragUpdate: (d) {
+            final box = context.findRenderObject() as RenderBox?;
+            if (box == null) return;
+            final local = box.globalToLocal(d.globalPosition);
+            final newHover = _starFromDx(local.dx);
+            if (newHover != _hover) {
+              // RF-HAPTIC: click táctil al cambiar de estrella durante arrastre
+              HapticFeedback.selectionClick();
+            }
+            setState(() => _hover = newHover);
+          },
+          onHorizontalDragEnd: (_) {
+            if (_hover > 0) _submit(_hover);
+          },
+          onTapDown: (d) {
+            final box = context.findRenderObject() as RenderBox?;
+            if (box == null) return;
+            final local = box.globalToLocal(d.globalPosition);
+            _submit(_starFromDx(local.dx));
+          },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(5, (i) {
+              final filled = (i + 1) <= active;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: _starPadH),
+                child: Icon(
+                  filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                  size: _starSize,
+                  color: AppTheme.warning,
                 ),
-              ),
-            ],
+              );
+            }),
           ),
-          const SizedBox(height: AppTheme.sp16),
-
-          // Promedio + barra
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                rating.averageDisplay,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 40,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(width: AppTheme.sp16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _StarBar(average: rating.average),
-                    const SizedBox(height: AppTheme.sp4),
-                    Text(
-                      rating.averageLabel,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.sp2),
-                    Text(
-                      '${rating.totalVotes} calificaciones',
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 11,
-                        color: AppTheme.textDisabled,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: AppTheme.sp20),
-          Divider(color: AppTheme.border.withAlpha(120), height: 1),
-          const SizedBox(height: AppTheme.sp16),
-
-          // Estrellas interactivas
-          _InteractiveStars(
-            projectId: projectId,
-            userStars: rating.userStars,
-            isAuthenticated: isAuthenticated,
-            isSubmitting: starState.isSubmitting,
+        ),
+        if (label != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.warning,
+            ),
           ),
         ],
-      ),
+      ],
+    );
+  }
+}
+
+class _RatingBarSkeleton extends StatelessWidget {
+  const _RatingBarSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        BioSkeleton(width: 40, height: 26, borderRadius: AppTheme.bSM),
+        const SizedBox(width: AppTheme.sp20),
+        BioSkeleton(width: 140, height: 28, borderRadius: AppTheme.bSM),
+        const SizedBox(width: AppTheme.sp20),
+        BioSkeleton(width: 36, height: 26, borderRadius: AppTheme.bSM),
+      ],
     );
   }
 }
@@ -426,165 +427,6 @@ class _StarBar extends StatelessWidget {
   }
 }
 
-// ── Estrellas interactivas ────────────────────────────────────────────────
-
-class _InteractiveStars extends ConsumerStatefulWidget {
-  const _InteractiveStars({
-    required this.projectId,
-    required this.userStars,
-    required this.isAuthenticated,
-    required this.isSubmitting,
-  });
-
-  final String projectId;
-  final int? userStars;
-  final bool isAuthenticated;
-  final bool isSubmitting;
-
-  @override
-  ConsumerState<_InteractiveStars> createState() => _InteractiveStarsState();
-}
-
-class _InteractiveStarsState extends ConsumerState<_InteractiveStars> {
-  int _hover = 0;
-
-  static const double _starSize = 34.0;
-  static const double _starPadH = 7.0;
-  static const double _slotW = _starSize + _starPadH * 2;
-
-  int _starFromDx(double dx) => (dx / _slotW).floor().clamp(0, 4) + 1;
-
-  String _labelFor(int stars) => switch (stars) {
-        5 => 'Excelente',
-        4 => 'Muy bueno',
-        3 => 'Bueno',
-        2 => 'Regular',
-        _ => 'Bajo',
-      };
-
-  void _submit(int stars) {
-    setState(() => _hover = 0);
-    ref.read(starRatingProvider(widget.projectId).notifier).submitRating(stars);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    ref.listen(starRatingProvider(widget.projectId), (prev, next) {
-      if (next.submitError != null && prev?.submitError != next.submitError) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'No se pudo enviar la calificación: ${next.submitError!.message}'),
-          backgroundColor: AppTheme.error,
-          duration: const Duration(seconds: 4),
-        ));
-      }
-    });
-
-    if (!widget.isAuthenticated) return const _VisitorRatingPrompt();
-
-    final active = _hover > 0 ? _hover : (widget.userStars ?? 0);
-    final hasVoted = widget.userStars != null;
-    final previewLabel = _hover > 0
-        ? _labelFor(_hover)
-        : (hasVoted ? _labelFor(widget.userStars!) : null);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              hasVoted ? 'Tu calificación' : 'Califica este proyecto',
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-            if (previewLabel != null) ...[
-              const Text(' · ', style: TextStyle(color: AppTheme.textDisabled)),
-              AnimatedSwitcher(
-                duration: AppTheme.animFast,
-                child: Text(
-                  key: ValueKey(previewLabel),
-                  previewLabel,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.warning,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: AppTheme.sp10),
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapUp: widget.isSubmitting
-              ? null
-              : (d) => _submit(_starFromDx(d.localPosition.dx)),
-          onPanUpdate: widget.isSubmitting
-              ? null
-              : (d) => setState(() => _hover = _starFromDx(d.localPosition.dx)),
-          onPanEnd: widget.isSubmitting
-              ? null
-              : (_) {
-                  if (_hover > 0) _submit(_hover);
-                },
-          onPanCancel: () => setState(() => _hover = 0),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(5, (i) {
-              final star = i + 1;
-              final isActive = star <= active;
-              final isPeeking = _hover > 0 && star == _hover;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: _starPadH),
-                child: AnimatedScale(
-                  scale: isPeeking ? 1.25 : 1.0,
-                  duration: AppTheme.animFast,
-                  curve: Curves.easeOut,
-                  child: Icon(
-                    isActive ? Icons.star_rounded : Icons.star_outline_rounded,
-                    size: _starSize,
-                    color: widget.isSubmitting
-                        ? AppTheme.warning.withValues(alpha: 0.5)
-                        : isActive
-                            ? AppTheme.warning
-                            : AppTheme.textDisabled,
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-        const SizedBox(height: AppTheme.sp8),
-        if (widget.isSubmitting)
-          const SizedBox(
-            height: 2,
-            child: LinearProgressIndicator(
-              backgroundColor: AppTheme.surface2,
-              color: AppTheme.warning,
-            ),
-          )
-        else
-          Text(
-            hasVoted
-                ? 'Desliza o toca una estrella para cambiar'
-                : 'Desliza o toca para calificar',
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 11,
-              color: AppTheme.textDisabled,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 // ── Prompt visitante ──────────────────────────────────────────────────────
 
 class _VisitorRatingPrompt extends StatelessWidget {
@@ -608,7 +450,7 @@ class _VisitorRatingPrompt extends StatelessWidget {
           SizedBox(width: AppTheme.sp10),
           Expanded(
             child: Text(
-              'Inicia sesión como Docente para calificar este proyecto',
+              'Inicia sesión para dejar comentarios y evaluaciones',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 12,
@@ -622,52 +464,11 @@ class _VisitorRatingPrompt extends StatelessWidget {
   }
 }
 
-// ── Skeleton rating ───────────────────────────────────────────────────────
-
-class _RatingSkeleton extends StatelessWidget {
-  const _RatingSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.sp16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface1,
-        borderRadius: AppTheme.bLG,
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          BioSkeleton(width: 200, height: 14, borderRadius: AppTheme.bSM),
-          const SizedBox(height: AppTheme.sp16),
-          Row(
-            children: [
-              BioSkeleton(width: 56, height: 48, borderRadius: AppTheme.bSM),
-              const SizedBox(width: AppTheme.sp16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  BioSkeleton(
-                      width: 100, height: 16, borderRadius: AppTheme.bSM),
-                  const SizedBox(height: AppTheme.sp8),
-                  BioSkeleton(
-                      width: 70, height: 12, borderRadius: AppTheme.bSM),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ══════════════════════════════════════════════════════════════════════════
 // 📋  EVAL BLOCK (Docentes only)
 // ══════════════════════════════════════════════════════════════════════════
 
-class _EvalBlock extends StatelessWidget {
+class _EvalBlock extends ConsumerWidget {
   const _EvalBlock({
     required this.projectId,
     required this.docenteTitularId,
@@ -678,19 +479,13 @@ class _EvalBlock extends StatelessWidget {
   final String projectId;
   final String? docenteTitularId;
   final EvaluationPanelState evalState;
-  final dynamic user;
+  final UserReadModel user;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Badge calificación vigente
-        if (evalState.currentGrade != null) ...[
-          _CurrentGradeBadge(evalState.currentGrade!),
-          const SizedBox(height: AppTheme.sp16),
-        ],
-
         // Formulario de evaluación
         _EvaluationForm(
           projectId: projectId,
@@ -702,98 +497,29 @@ class _EvalBlock extends StatelessWidget {
         const SizedBox(height: AppTheme.sp20),
 
         // Historial
-        Builder(
-          builder: (context) {
-            final ref = (context as Element)
-                .findAncestorStateOfType<ConsumerState>()
-                ?.ref;
-            if (evalState.isLoading) return const _EvalListSkeleton();
-            if (evalState.hasError) {
-              return BioErrorView(
-                message:
-                    evalState.error?.message ?? 'Error al cargar evaluaciones.',
-                onRetry: ref != null
-                    ? () => ref
-                        .read(evaluationPanelProvider(projectId).notifier)
-                        .load(projectId, forceRefresh: true)
-                    : null,
-              );
-            }
-            if (evalState.evaluations.isEmpty) {
-              return const BioEmptyView(
-                message: 'Sin evaluaciones aún',
-                subtitle: 'Sé el primero en evaluar este proyecto.',
-                icon: Icons.rate_review_outlined,
-              );
-            }
-            return Column(
-              children: evalState.evaluations
-                  .map((e) => EvaluationCard(
-                        evaluation: e,
-                        projectId: projectId,
-                        userId: user.userId,
-                      ))
-                  .toList(),
-            );
-          },
-        ),
+        if (evalState.isLoading)
+          const _EvalListSkeleton()
+        else if (evalState.hasError)
+          BioErrorView(
+            message:
+                evalState.error?.message ?? 'Error al cargar evaluaciones.',
+            onRetry: () => ref
+                .read(evaluationPanelProvider(projectId).notifier)
+                .load(projectId, forceRefresh: true),
+          )
+        else if (evalState.evaluations.isEmpty)
+          const BioEmptyView(
+            message: 'Sin evaluaciones aún',
+            subtitle: 'Sé el primero en evaluar este proyecto.',
+            icon: Icons.rate_review_outlined,
+          )
+        else
+          ...evalState.evaluations.map((e) => EvaluationCard(
+                evaluation: e,
+                projectId: projectId,
+                userId: user.userId,
+              )),
       ],
-    );
-  }
-}
-
-// ── Badge calificación oficial vigente ────────────────────────────────────
-
-class _CurrentGradeBadge extends StatelessWidget {
-  const _CurrentGradeBadge(this.grade);
-  final double grade;
-
-  Color get _gradeColor {
-    if (grade >= 90) return AppTheme.success;
-    if (grade >= 70) return AppTheme.warning;
-    return AppTheme.error;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.sp16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface1,
-        borderRadius: AppTheme.bMD,
-        border: Border.all(color: _gradeColor.withAlpha(77)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.grade_rounded, color: _gradeColor, size: 20),
-          const SizedBox(width: AppTheme.sp12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Calificación oficial vigente',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  color: AppTheme.textDisabled,
-                ),
-              ),
-              Text(
-                grade == grade.toInt().toDouble()
-                    ? grade.toInt().toString()
-                    : grade.toStringAsFixed(1),
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: _gradeColor,
-                  letterSpacing: -1,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
@@ -810,7 +536,7 @@ class _EvaluationForm extends ConsumerStatefulWidget {
 
   final String projectId;
   final String? docenteTitularId;
-  final dynamic user;
+  final UserReadModel user;
   final EvaluationPanelState state;
 
   @override
@@ -834,11 +560,10 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
         .read(evaluationPanelProvider(widget.projectId).notifier)
         .submitEvaluation(
           projectId: widget.projectId,
-          docenteId: widget.user.userId ?? '',
+          docenteId: widget.user.userId,
           docenteNombre: widget.user.nombreCompleto,
           docenteTitularId: widget.docenteTitularId,
         );
-
     if (success && mounted) {
       _contenidoCtrl.clear();
       context.showSuccess('Evaluación enviada.');
@@ -854,7 +579,7 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
 
     final canGradeOfficial =
         ref.read(evaluationRepositoryProvider).canGradeOfficially(
-              userRol: widget.user.rol ?? '',
+              userRol: widget.user.rol,
               userId: widget.user.userId,
               docenteTitularId: widget.docenteTitularId,
             );
@@ -1130,7 +855,7 @@ class EvaluationCard extends ConsumerWidget {
 
           // Contenido
           Text(
-            evaluation.contenido,
+            sanitizeContent(evaluation.contenido),
             style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 14,
@@ -1290,499 +1015,166 @@ class _OfflineNotice extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// 💬  FEEDBACK BLOCK — private helpers
-// ══════════════════════════════════════════════════════════════════════════
+// ── Modal de confirmación de evaluación ──────────────────────────────────
+//
+// RF-MODAL: Muestra resumen (puntuación + nombre del proyecto) antes de
+// enviar la calificación por estrellas (spec §6 Evaluación).
 
-// ── Chip de tipo de publicación ───────────────────────────────────────────
-
-class _TypeChip extends StatelessWidget {
-  const _TypeChip({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
+class _EvalConfirmDialog extends StatelessWidget {
+  const _EvalConfirmDialog({
+    required this.stars,
+    required this.projectTitle,
+    this.isUpdate = false,
   });
 
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
+  final int stars;
+  final String projectTitle;
+
+  /// True si el usuario ya tenía un voto previo (UPSERT).
+  final bool isUpdate;
+
+  static const _labels = [
+    'Bajo',
+    'Regular',
+    'Bueno',
+    'Muy bueno',
+    'Excelente',
+  ];
+
+  String get _label => stars >= 1 && stars <= 5 ? _labels[stars - 1] : '';
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppTheme.animFast,
-        padding:
-            const EdgeInsets.symmetric(horizontal: AppTheme.sp12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.white : AppTheme.surface2,
-          borderRadius: AppTheme.bFull,
-          border:
-              Border.all(color: isSelected ? AppTheme.white : AppTheme.border),
-        ),
-        child: Row(
+    return BackdropFilter(
+      filter: ColorFilter.mode(Colors.black.withAlpha(80), BlendMode.darken),
+      child: AlertDialog(
+        backgroundColor: AppTheme.surface1,
+        shape: RoundedRectangleBorder(borderRadius: AppTheme.bLG),
+        contentPadding: const EdgeInsets.all(AppTheme.sp24),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 13,
-              color: isSelected ? AppTheme.black : AppTheme.textSecondary,
+            // Ícono de estrella
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withAlpha(30),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.star_rounded,
+                size: 30,
+                color: AppTheme.warning,
+              ),
             ),
-            const SizedBox(width: AppTheme.sp4),
+            const SizedBox(height: AppTheme.sp16),
+
+            // Estrellas seleccionadas
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (i) {
+                return Icon(
+                  (i + 1) <= stars
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  size: 22,
+                  color: AppTheme.warning,
+                );
+              }),
+            ),
+            const SizedBox(height: AppTheme.sp4),
+
+            // Label de la puntuación
             Text(
-              label,
-              style: TextStyle(
+              _label,
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? AppTheme.black : AppTheme.textSecondary,
+                color: AppTheme.warning,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+            const SizedBox(height: AppTheme.sp12),
 
-// ── Área de entrada unificada ─────────────────────────────────────────────
-
-class _InputArea extends StatelessWidget {
-  const _InputArea({
-    required this.ctrl,
-    required this.isAuthenticated,
-    required this.isSubmitting,
-    required this.canPublish,
-    required this.isOnline,
-    required this.hintText,
-    required this.onTextChanged,
-    required this.onPublish,
-  });
-
-  final TextEditingController ctrl;
-  final bool isAuthenticated;
-  final bool isSubmitting;
-  final bool canPublish;
-  final bool isOnline;
-  final String hintText;
-  final ValueChanged<String> onTextChanged;
-  final VoidCallback onPublish;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.sp12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface1,
-        borderRadius: AppTheme.bLG,
-        border: Border.all(
-          color: isAuthenticated ? AppTheme.border : AppTheme.surface3,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          TextField(
-            controller: ctrl,
-            enabled: isAuthenticated,
-            maxLines: 3,
-            minLines: 1,
-            maxLength: 500,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              color: AppTheme.textPrimary,
-              height: 1.5,
-            ),
-            decoration: InputDecoration(
-              hintText: hintText,
-              hintStyle: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: AppTheme.textDisabled,
-              ),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              counterText: '',
-            ),
-            onChanged: onTextChanged,
-          ),
-          if (isAuthenticated) ...[
-            const SizedBox(height: AppTheme.sp8),
-            Divider(color: AppTheme.border.withAlpha(80), height: 1),
-            const SizedBox(height: AppTheme.sp8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${ctrl.text.trim().length}/500',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 11,
-                    color: AppTheme.textDisabled,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: canPublish ? onPublish : null,
-                  child: AnimatedOpacity(
-                    opacity: canPublish ? 1.0 : 0.4,
-                    duration: AppTheme.animFast,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppTheme.sp16, vertical: AppTheme.sp8),
-                      decoration: BoxDecoration(
-                        color: canPublish ? AppTheme.white : AppTheme.surface3,
-                        borderRadius: AppTheme.bFull,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isSubmitting)
-                            const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.black,
-                              ),
-                            )
-                          else
-                            const Icon(Icons.send_rounded,
-                                size: 14, color: AppTheme.black),
-                          const SizedBox(width: AppTheme.sp6),
-                          Text(
-                            isSubmitting ? 'Enviando...' : 'Publicar',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ── Burbuja de comentario ─────────────────────────────────────────────────
-
-class _CommentBubble extends StatelessWidget {
-  const _CommentBubble({required this.comment});
-  final CommentReadModel comment;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.sp12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Avatar(comment: comment),
-          const SizedBox(width: AppTheme.sp12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        comment.userName,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: comment.isOwn
-                              ? AppTheme.info
-                              : AppTheme.textPrimary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.sp8),
-                    Text(
-                      comment.fechaDisplay,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 11,
-                        color: AppTheme.textDisabled,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppTheme.sp4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.sp12, vertical: AppTheme.sp10),
-                  decoration: BoxDecoration(
-                    color: comment.isOwn
-                        ? AppTheme.info.withAlpha(20)
-                        : AppTheme.surface1,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(AppTheme.radiusMD),
-                      topRight: const Radius.circular(AppTheme.radiusMD),
-                      bottomLeft: Radius.circular(comment.isOwn
-                          ? AppTheme.radiusMD
-                          : AppTheme.radiusXS),
-                      bottomRight: Radius.circular(comment.isOwn
-                          ? AppTheme.radiusXS
-                          : AppTheme.radiusMD),
-                    ),
-                    border: Border.all(
-                      color: comment.isOwn
-                          ? AppTheme.info.withAlpha(50)
-                          : AppTheme.border,
-                    ),
-                  ),
-                  child: Text(
-                    comment.text,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      color: AppTheme.textSecondary,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Avatar ────────────────────────────────────────────────────────────────
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.comment});
-  final CommentReadModel comment;
-
-  @override
-  Widget build(BuildContext context) {
-    if (comment.userAvatarUrl != null) {
-      return ClipOval(
-        child: Image.network(
-          comment.userAvatarUrl!,
-          width: 36,
-          height: 36,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _Initials(comment: comment),
-        ),
-      );
-    }
-    return _Initials(comment: comment);
-  }
-}
-
-class _Initials extends StatelessWidget {
-  const _Initials({required this.comment});
-  final CommentReadModel comment;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppTheme.surface2,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.border),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        comment.initials,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textSecondary,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Feed vacío ────────────────────────────────────────────────────────────
-
-class _EmptyFeed extends StatelessWidget {
-  const _EmptyFeed();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: AppTheme.sp16),
-      child: BioEmptyView(
-        message: 'Sin retroalimentación aún',
-        subtitle: 'Sé el primero en dejar tu opinión sobre este proyecto.',
-        icon: Icons.forum_outlined,
-      ),
-    );
-  }
-}
-
-// ── Skeleton comentarios ──────────────────────────────────────────────────
-
-class _CommentsSkeleton extends StatelessWidget {
-  const _CommentsSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(
-        3,
-        (i) => Padding(
-          padding: const EdgeInsets.only(bottom: AppTheme.sp12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              BioSkeleton(
-                  width: 36,
-                  height: 36,
-                  borderRadius: BorderRadius.circular(18)),
-              const SizedBox(width: AppTheme.sp12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    BioSkeleton(
-                        width: 120, height: 13, borderRadius: AppTheme.bSM),
-                    const SizedBox(height: AppTheme.sp8),
-                    BioSkeleton(
-                        width: double.infinity,
-                        height: 48,
-                        borderRadius: AppTheme.bMD),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Skeleton sugerencias en feed ──────────────────────────────────────────
-
-class _EvalFeedSkeleton extends StatelessWidget {
-  const _EvalFeedSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(
-        2,
-        (i) => Padding(
-          padding: const EdgeInsets.only(bottom: AppTheme.sp8),
-          child: BioSkeleton(
-            width: double.infinity,
-            height: 80,
-            borderRadius: AppTheme.bMD,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Card de sugerencia en el feed ─────────────────────────────────────────
-
-class _FeedEvalCard extends StatelessWidget {
-  const _FeedEvalCard({
-    required this.evaluation,
-    required this.projectId,
-    required this.userId,
-  });
-
-  final EvaluationReadModel evaluation;
-  final String projectId;
-  final String userId;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppTheme.sp8),
-      padding: const EdgeInsets.all(AppTheme.sp16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface1,
-        borderRadius: AppTheme.bMD,
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppTheme.surface2,
-              borderRadius: AppTheme.bFull,
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: Text(
-              evaluation.tipo.toUpperCase(),
+            // Título del proyecto
+            Text(
+              projectTitle,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontFamily: 'Inter',
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textDisabled,
-                letterSpacing: 0.5,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
               ),
             ),
-          ),
-          const SizedBox(height: AppTheme.sp10),
-          Text(
-            evaluation.contenido,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              color: AppTheme.textPrimary,
-              height: 1.5,
+            const SizedBox(height: AppTheme.sp6),
+            const Text(
+              '¿Confirmas tu calificación?',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+              ),
             ),
-          ),
-          const SizedBox(height: AppTheme.sp8),
-          Row(
-            children: [
-              const Icon(Icons.person_outline_rounded,
-                  size: 11, color: AppTheme.textDisabled),
-              const SizedBox(width: 4),
-              Text(
-                evaluation.docenteNombre,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  color: AppTheme.textDisabled,
+            // RF-WARN: Nota de reemplazo cuando ya existe voto previo (spec §2.1)
+            if (isUpdate) ...[
+              const SizedBox(height: AppTheme.sp10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.sp12, vertical: AppTheme.sp8),
+                decoration: BoxDecoration(
+                  color: AppTheme.warning.withAlpha(20),
+                  borderRadius: AppTheme.bSM,
+                  border: Border.all(color: AppTheme.warning.withAlpha(80)),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                evaluation.fechaFormateada,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  color: AppTheme.textDisabled,
+                child: const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 14, color: AppTheme.warning),
+                    SizedBox(width: AppTheme.sp8),
+                    Expanded(
+                      child: Text(
+                        'Tu calificación anterior será reemplazada.',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          color: AppTheme.warning,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-        ],
+            const SizedBox(height: AppTheme.sp24),
+
+            // Acciones
+            Row(
+              children: [
+                // Cancelar
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+                const SizedBox(width: AppTheme.sp12),
+                // Confirmar (autofocus para accesibilidad)
+                Expanded(
+                  child: ElevatedButton(
+                    autofocus: true,
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Confirmar'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

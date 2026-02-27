@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 
-import 'package:biofrost/core/models/project_read_model.dart';
+import 'package:biofrost/features/project_detail/domain/models/project_detail_read_model.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/features/sharing/sharing_service.dart';
 

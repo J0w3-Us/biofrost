@@ -8,7 +8,7 @@ library project_card;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import 'package:biofrost/core/models/project_read_model.dart';
+import 'package:biofrost/features/showcase/domain/models/project_read_model.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 
 // ── ProjectCard ───────────────────────────────────────────────────────────

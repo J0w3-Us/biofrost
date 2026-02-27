@@ -13,20 +13,17 @@ export 'config/api_endpoints.dart';
 // Errors
 export 'errors/app_exceptions.dart';
 
-// Models (ReadModels + CommandModels)
-export 'models/user_read_model.dart';
-export 'models/project_read_model.dart';
-export 'models/evaluation_read_model.dart';
-
 // Services
 export 'services/api_service.dart';
-export 'services/auth_service.dart';
 export 'services/analytics_service.dart';
 export 'services/connectivity_service.dart';
 
-// Repositories
-export 'repositories/project_repository.dart';
-export 'repositories/evaluation_repository.dart';
+// Domain models (feature-local — re-exported for convenience)
+export 'package:biofrost/features/auth/domain/models/user_read_model.dart';
+export 'package:biofrost/features/showcase/domain/models/project_read_model.dart';
+export 'package:biofrost/features/evaluations/domain/models/evaluation_read_model.dart';
+export 'package:biofrost/features/project_detail/domain/models/comment_read_model.dart';
+export 'package:biofrost/features/project_detail/domain/models/star_rating_read_model.dart';
 
 // Router
 export 'router/app_router.dart';

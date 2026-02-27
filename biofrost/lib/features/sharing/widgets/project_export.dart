@@ -7,7 +7,7 @@ import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 
-import 'package:biofrost/core/models/project_read_model.dart';
+import 'package:biofrost/features/project_detail/domain/models/project_detail_read_model.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/features/sharing/sharing_service.dart';
 
@@ -86,7 +86,8 @@ class _ProjectCardCaptureState extends State<ProjectCardCapture> {
         children: [
           // Handle
           Container(
-            width: 40, height: 4,
+            width: 40,
+            height: 4,
             margin: const EdgeInsets.only(bottom: 24),
             decoration: BoxDecoration(
               color: AppTheme.border,
@@ -176,12 +177,14 @@ class _ShareableCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 32, height: 32,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: AppTheme.white,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.hub_rounded, color: Colors.black, size: 18),
+                child: const Icon(Icons.hub_rounded,
+                    color: Colors.black, size: 18),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -247,7 +250,8 @@ class _ShareableCard extends StatelessWidget {
                 .take(5)
                 .map(
                   (tech) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.surface3,
                       borderRadius: BorderRadius.circular(20),
@@ -274,16 +278,20 @@ class _ShareableCard extends StatelessWidget {
               children: [
                 ...project.members.take(4).map(
                       (m) => Container(
-                        width: 28, height: 28,
+                        width: 28,
+                        height: 28,
                         margin: const EdgeInsets.only(right: 4),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppTheme.surface3,
-                          border: Border.all(color: AppTheme.border, width: 1.5),
+                          border:
+                              Border.all(color: AppTheme.border, width: 1.5),
                         ),
                         child: Center(
                           child: Text(
-                            m.nombre.isNotEmpty ? m.nombre[0].toUpperCase() : '?',
+                            m.nombre.isNotEmpty
+                                ? m.nombre[0].toUpperCase()
+                                : '?',
                             style: const TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 11,
@@ -357,7 +365,8 @@ class _Btn extends StatelessWidget {
         child: loading
             ? const Center(
                 child: SizedBox(
-                  width: 18, height: 18,
+                  width: 18,
+                  height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: AppTheme.textSecondary,
@@ -367,7 +376,8 @@ class _Btn extends StatelessWidget {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 16,
+                  Icon(icon,
+                      size: 16,
                       color: filled ? Colors.black : AppTheme.textPrimary),
                   const SizedBox(width: 6),
                   Text(

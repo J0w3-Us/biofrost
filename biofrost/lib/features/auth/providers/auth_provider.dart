@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:biofrost/core/config/app_config.dart';
 import 'package:biofrost/core/errors/app_exceptions.dart';
-import 'package:biofrost/core/models/user_read_model.dart';
 import 'package:biofrost/core/services/api_service.dart';
-import 'package:biofrost/core/services/auth_service.dart';
+import 'package:biofrost/features/auth/data/auth_service.dart';
+import 'package:biofrost/features/auth/domain/models/user_read_model.dart';
 
 // ── Provider base: Infraestructura ─────────────────────────────────────
 
@@ -66,6 +66,10 @@ final class AuthStateError extends AuthState {
 /// Escucha [FirebaseAuth.authStateChanges] y sincroniza con el backend.
 /// Expone acciones: [loginAsDocente], [continueAsVisitor], [logout].
 class AuthNotifier extends Notifier<AuthState> {
+  /// True while loginAsDocente/registerDocente are actively running.
+  /// Used to prevent the authStateChanges listener from competing with them.
+  bool _isActivelySigningIn = false;
+
   @override
   AuthState build() {
     _initAuthListener();
@@ -85,6 +89,14 @@ class AuthNotifier extends Notifier<AuthState> {
           return;
         }
 
+        // Si loginAsDocente / registerDocente están corriendo activamente,
+        // dejar que ellos resuelvan el estado final. Evita la condición de
+        // carrera donde el listener y el método compiten por _syncWithBackend.
+        // NOTA: no usar `state is AuthStateLoading` porque eso también bloquea
+        // la restauración de sesión cacheada al arrancar la app, dejando el
+        // estado en Loading indefinidamente.
+        if (_isActivelySigningIn) return;
+
         // Usuario Firebase exists → sincronizar con backend
         try {
           final user = await _authService.refreshUserData(firebaseUser.uid);
@@ -92,6 +104,10 @@ class AuthNotifier extends Notifier<AuthState> {
         } on ForbiddenException catch (e) {
           state = AuthStateError(e);
         } on AppException catch (e) {
+          // Error de red al sincronizar con el backend después de que Firebase
+          // ya autenticó al usuario. No forzar estado de error para no perder
+          // la sesión de Firebase recién establecida; se reintentará al
+          // próximo cambio de estado.
           state = AuthStateError(e);
         }
       },
@@ -107,6 +123,7 @@ class AuthNotifier extends Notifier<AuthState> {
     required String email,
     required String password,
   }) async {
+    _isActivelySigningIn = true;
     state = AuthStateLoading();
     try {
       final user = await _authService.signInDocente(
@@ -116,6 +133,8 @@ class AuthNotifier extends Notifier<AuthState> {
       state = AuthStateAuthenticated(user);
     } on AppException catch (e) {
       state = AuthStateError(e);
+    } finally {
+      _isActivelySigningIn = false;
     }
   }
 
@@ -133,6 +152,7 @@ class AuthNotifier extends Notifier<AuthState> {
     required String nombre,
     String? apellidoPaterno,
   }) async {
+    _isActivelySigningIn = true;
     state = AuthStateLoading();
     try {
       final user = await _authService.registerDocente(
@@ -144,6 +164,8 @@ class AuthNotifier extends Notifier<AuthState> {
       state = AuthStateAuthenticated(user);
     } on AppException catch (e) {
       state = AuthStateError(e);
+    } finally {
+      _isActivelySigningIn = false;
     }
   }
 

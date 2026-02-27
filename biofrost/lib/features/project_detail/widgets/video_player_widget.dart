@@ -22,6 +22,17 @@ class VideoPlayerWidget extends StatefulWidget {
     this.showControls = true,
     this.aspectRatio = 16 / 9,
     this.placeholder,
+    // Optional: parent can provide already-initialized controllers to
+    // avoid heavy initialization here. If provided, this widget will
+    // render them but will not dispose them.
+    this.videoController,
+    this.chewieController,
+    // Optional callback used when the parent wants to handle loading
+    // (e.g. push full-screen and initialize controllers there).
+    this.onTap,
+    // Called after initialization with the video's real aspect ratio.
+    // Use this to adjust layout/orientation in the parent.
+    this.onAspectRatioResolved,
   });
 
   final String videoUrl;
@@ -29,6 +40,10 @@ class VideoPlayerWidget extends StatefulWidget {
   final bool showControls;
   final double aspectRatio;
   final Widget? placeholder;
+  final VideoPlayerController? videoController;
+  final ChewieController? chewieController;
+  final VoidCallback? onTap;
+  final void Function(double aspectRatio)? onAspectRatioResolved;
 
   @override
   State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
@@ -39,17 +54,33 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   ChewieController? _chewieController;
   bool _isLoading = true;
   String? _error;
+  bool _ownsControllers = false;
+  double? _nativeAspectRatio;
 
   @override
   void initState() {
     super.initState();
-    _initializeVideo();
+    // If parent provided controllers, use them and skip initialization.
+    if (widget.chewieController != null || widget.videoController != null) {
+      _chewieController = widget.chewieController;
+      _videoController = widget.videoController;
+      _isLoading = false;
+      _ownsControllers = false;
+    } else if (widget.onTap != null) {
+      // Parent will handle heavy loading; show lightweight placeholder.
+      _isLoading = false;
+      _ownsControllers = false;
+    } else {
+      _initializeVideo();
+    }
   }
 
   @override
   void dispose() {
-    _chewieController?.dispose();
-    _videoController?.dispose();
+    if (_ownsControllers) {
+      _chewieController?.dispose();
+      _videoController?.dispose();
+    }
     super.dispose();
   }
 
@@ -89,12 +120,16 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     await _videoController!.initialize();
 
+    // Use the video's real dimensions so portrait videos display correctly.
+    _nativeAspectRatio = _videoController!.value.aspectRatio;
+    widget.onAspectRatioResolved?.call(_nativeAspectRatio!);
+
     _chewieController = ChewieController(
       videoPlayerController: _videoController!,
       autoPlay: widget.autoPlay,
       looping: false,
       showControls: widget.showControls,
-      aspectRatio: widget.aspectRatio,
+      aspectRatio: _nativeAspectRatio ?? widget.aspectRatio,
       allowFullScreen: true,
       allowMuting: true,
       showControlsOnInitialize: false,
@@ -107,6 +142,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       placeholder: widget.placeholder ?? _buildPlaceholder(),
       errorBuilder: (context, errorMessage) => _buildError(errorMessage),
     );
+
+    // We created controllers here and must dispose them.
+    _ownsControllers = true;
 
     setState(() {
       _isLoading = false;
@@ -123,7 +161,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     return directVideoExtensions.any((ext) => path.endsWith(ext)) ||
         uri.host.contains('storage.googleapis.com') ||
         uri.host.contains('firebasestorage.googleapis.com') ||
-        uri.host.contains(AppConfig.supabaseUrl.replaceAll('https://', '').replaceAll('http://', '')) ||
+        uri.host.contains(AppConfig.supabaseUrl
+            .replaceAll('https://', '')
+            .replaceAll('http://', '')) ||
         uri.host.contains('supabase.co');
   }
 
@@ -163,40 +203,44 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         border: Border.all(color: AppTheme.border),
       ),
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              color: AppTheme.textDisabled,
-              size: 48,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Error al cargar video',
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                color: AppTheme.textDisabled,
+                size: 48,
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              message,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: AppTheme.textSecondary,
+              const SizedBox(height: 12),
+              const Text(
+                'Error al cargar video',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _initializeVideo,
-              child: const Text('Reintentar'),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                message,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _initializeVideo,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -215,7 +259,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     }
 
     return GestureDetector(
-      onTap: () => _openExternalVideo(),
+      onTap: widget.onTap ?? () => _openExternalVideo(),
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.surface1,
@@ -357,6 +401,17 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       return ClipRRect(
         borderRadius: AppTheme.bMD,
         child: Chewie(controller: _chewieController!),
+      );
+    }
+
+    // If parent provided an `onTap` it should handle heavy loading/opening.
+    if (widget.onTap != null) {
+      return GestureDetector(
+        onTap: widget.onTap,
+        child: AspectRatio(
+          aspectRatio: widget.aspectRatio,
+          child: widget.placeholder ?? _buildPlaceholder(),
+        ),
       );
     }
 

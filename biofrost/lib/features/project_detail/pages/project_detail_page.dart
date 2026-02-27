@@ -7,7 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:biofrost/core/cache/cache_service.dart';
 import 'package:biofrost/core/errors/app_exceptions.dart';
-import 'package:biofrost/core/models/project_read_model.dart';
+import 'package:biofrost/features/showcase/data/project_repository.dart';
+import 'package:biofrost/features/project_detail/domain/models/project_detail_read_model.dart';
 import 'package:biofrost/core/router/app_router.dart';
 import 'package:biofrost/core/services/analytics_service.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
@@ -19,6 +20,7 @@ import 'package:biofrost/features/project_detail/widgets/video_player_widget.dar
 import 'package:biofrost/features/sharing/sharing.dart';
 import 'package:biofrost/features/auth/providers/auth_provider.dart';
 import 'package:biofrost/features/showcase/providers/projects_provider.dart';
+import 'package:biofrost/core/utils/sanitize.dart';
 
 /// Pantalla de detalle de un proyecto.
 ///
@@ -60,7 +62,7 @@ class _ProjectDetailPageState extends ConsumerState<ProjectDetailPage> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.surface0,
+      bottomNavigationBar: ProjectRatingBottomBar(projectId: widget.projectId),
       body: asyncProject.when(
         loading: () => const _DetailSkeleton(),
         error: (e, _) => BioErrorView(
@@ -130,11 +132,17 @@ class _DetailContent extends StatelessWidget {
           pinned: true,
           floating: false,
           expandedHeight: 0,
-          backgroundColor: AppTheme.surface0,
           surfaceTintColor: Colors.transparent,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-            onPressed: () => context.go(AppRoutes.showcase),
+            onPressed: () {
+              // Regresa al origen con gesto/botón del dispositivo
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(AppRoutes.showcase);
+              }
+            },
           ),
           title: Text(
             project.titulo,
@@ -171,18 +179,25 @@ class _DetailContent extends StatelessWidget {
               // ── 2. Card de descripción ────────────────────────────────
               if (project.descripcion != null &&
                   project.descripcion!.isNotEmpty) ...[
-                _DescriptionCard(text: project.descripcion!),
+                _DescriptionCard(text: stripHtmlKeepLines(project.descripcion)),
                 const SizedBox(height: AppTheme.sp20),
               ],
 
               // ── 3. Video del Proyecto ─────────────────────────────────
-              ProjectVideoCard(
-                videoUrl: primaryVideoUrl,
-                projectTitle: project.titulo,
-                canvasVideoUrls: canvasVideoUrls,
-              ),
-              _VideoEditSection(project: project),
-              const SizedBox(height: AppTheme.sp20),
+              // Solo renderizar la sección de video si hay video real
+              // o si el usuario es miembro (puede agregar uno).
+              if (primaryVideoUrl != null || canvasVideoUrls.isNotEmpty) ...[
+                ProjectVideoCard(
+                  videoUrl: primaryVideoUrl,
+                  projectTitle: project.titulo,
+                  canvasVideoUrls: canvasVideoUrls,
+                ),
+                _VideoEditSection(project: project),
+                const SizedBox(height: AppTheme.sp20),
+              ] else ...[
+                // Sin video: solo mostrar botón de editar si es miembro
+                _VideoEditSection(project: project),
+              ],
 
               // ── 4. Links externos (repo + demo) ───────────────────────
               if (project.hasRepo ||
@@ -192,11 +207,13 @@ class _DetailContent extends StatelessWidget {
               ],
 
               // ── 5. Stack tecnológico ──────────────────────────────────
-              _Section(
-                title: 'Stack tecnológico',
-                child: _StackGrid(project.stackTecnologico),
-              ),
-              const SizedBox(height: AppTheme.sp20),
+              if (project.stackTecnologico.isNotEmpty) ...[
+                _Section(
+                  title: 'Stack tecnológico',
+                  child: _StackGrid(project.stackTecnologico),
+                ),
+                const SizedBox(height: AppTheme.sp20),
+              ],
 
               // ── 6. Equipo ─────────────────────────────────────────────
               _Section(
@@ -900,7 +917,12 @@ class _CanvasBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final type = block['type'] as String? ?? 'text';
-    final content = _blockUrl(block);
+    // Strip HTML tags from all text-based blocks; image/video/link blocks
+    // use the raw URL so we skip stripping for those.
+    final rawContent = _blockUrl(block);
+    final content = (type == 'image' || type == 'video' || type == 'link')
+        ? rawContent
+        : stripHtmlKeepLines(rawContent);
 
     switch (type) {
       // ── Encabezados ─────────────────────────────────────────────
@@ -1040,6 +1062,11 @@ class _CanvasBlock extends StatelessWidget {
             ),
           ),
         );
+
+      // ── Tabla (no renderizable en Flutter Text) ────────────────────
+      // El contenido real está en metadata.table — omitir por ahora.
+      case 'table':
+        return const SizedBox.shrink();
 
       // ── Video en canvas ──────────────────────────────────────────
       case 'video':

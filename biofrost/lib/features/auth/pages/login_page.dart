@@ -109,8 +109,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'Ingresa tu correo.';
     if (!value.contains('@')) return 'Ingresa un correo válido.';
-    if (!value.endsWith('@utm.mx'))
-      return 'Usa tu correo institucional (@utm.mx).';
+    if (!value.endsWith('@atmetropilonana.edu.mx'))
+      return 'Usa tu correo institucional (@atmetropilonana.edu.mx).';
     return null;
   }
 
@@ -163,7 +163,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
     final error = authState is AuthStateError ? authState.exception : null;
 
     return Scaffold(
-      backgroundColor: AppTheme.surface0,
       body: FadeTransition(
         opacity: _fadeAnim,
         child: SafeArea(
@@ -249,8 +248,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
                 const SizedBox(height: AppTheme.sp32),
 
-                // ── Nota ──────────────────────────────────────────
-                const _InfoNote(),
+                // ── Nota eliminada: la información de dominio
+                // está embebida en el placeholder del campo de email.
               ],
             ),
           ),
@@ -379,7 +378,7 @@ class _LoginForm extends StatelessWidget {
         children: [
           BioInput(
             controller: emailCtrl,
-            hint: 'usuario@utm.mx',
+            hint: 'usuario@atmetropilonana.edu.mx',
             label: 'Correo institucional',
             prefixIcon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
@@ -515,7 +514,7 @@ class _RegisterFormState extends State<_RegisterForm> {
           // ── Correo ────────────────────────────────────────────────
           BioInput(
             controller: widget.emailCtrl,
-            hint: 'usuario@utm.mx',
+            hint: 'usuario@atmetropilonana.edu.mx',
             label: 'Correo institucional *',
             prefixIcon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
@@ -688,42 +687,6 @@ class _ErrorBanner extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _InfoNote extends StatelessWidget {
-  const _InfoNote();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.sp16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface1,
-        borderRadius: AppTheme.bMD,
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline_rounded,
-              size: 16, color: AppTheme.textDisabled),
-          SizedBox(width: AppTheme.sp12),
-          Expanded(
-            child: Text(
-              'Los Docentes inician sesión con su cuenta\ninstitucional @utm.mx. '
-              'Los Visitantes acceden sin auth para explorar proyectos públicos.',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                color: AppTheme.textDisabled,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

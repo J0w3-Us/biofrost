@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:biofrost/core/models/project_read_model.dart';
+import 'package:biofrost/features/project_detail/domain/models/project_detail_read_model.dart';
 
 /// Servicio central del Módulo 5 — Sharing, QR & Export.
 ///

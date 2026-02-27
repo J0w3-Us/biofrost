@@ -1,5 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,32 +17,42 @@ import 'core/providers/theme_provider.dart';
 import 'core/widgets/ui_kit.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+
+  // Preserve the native splash until Flutter draws first frame / we remove it.
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // ── Firebase ──────────────────────────────────────────────────────────────
   await Firebase.initializeApp();
 
-  // ── Supabase (Storage + Comments) ─────────────────────────────────────────
-  await Supabase.initialize(
-    url: AppConfig.supabaseUrl,
-    anonKey: AppConfig.supabaseAnonKey,
-  );
-
-  // ── Módulo 3: Caché ───────────────────────────────────────────────────────
+  // ── Módulo 3: Caché (rápido) ──────────────────────────────────────────────
   final prefs = await SharedPreferences.getInstance();
 
-  // ── Módulo 3: Notificaciones Push ─────────────────────────────────────────
-  // No se bloquea main() — el diálogo de permiso de Android 13 se resuelve
-  // en background para que runApp() no quede esperando al usuario.
+  // Notificaciones: inicializar pero no bloquear UI
   NotificationService.instance.initialize().catchError(
         (e) => debugPrint('[Boot] Notificaciones no disponibles: $e'),
       );
 
-  // ── Módulo 3: Deep Links ──────────────────────────────────────────────────
-  await DeepLinkService.instance.initialize();
+  // Ejecutar las inicializaciones pesadas en background una vez que la app
+  // haya arrancado para reducir time-to-first-frame.
+  Future<void> bootstrapServices() async {
+    try {
+      await Supabase.initialize(
+        url: AppConfig.supabaseUrl,
+        anonKey: AppConfig.supabaseAnonKey,
+      );
+    } catch (e) {
+      debugPrint('[Boot] Supabase init falló: $e');
+    }
 
-  // ── Módulo 3: Conectividad Offline ───────────────────────────────────────
-  await ConnectivityService.instance.initialize();
+    DeepLinkService.instance.initialize().catchError(
+          (e) => debugPrint('[Boot] DeepLink init falló: $e'),
+        );
+
+    ConnectivityService.instance.initialize().catchError(
+          (e) => debugPrint('[Boot] Connectivity init falló: $e'),
+        );
+  }
 
   runApp(
     ProviderScope(
@@ -48,7 +60,10 @@ Future<void> main() async {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
       ],
-      child: const BiofrostApp(),
+      child: SplashRemover(
+        onBootstrapped: () => Future.microtask(bootstrapServices),
+        child: const BiofrostApp(),
+      ),
     ),
   );
 }
@@ -84,9 +99,11 @@ class BiofrostApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Biofrost — IntegradorHub',
       debugShowCheckedModeBanner: false,
-      theme: themeMode == AppThemeModeOption.dark
-          ? AppTheme.dark()
-          : AppTheme.light(),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: themeMode == AppThemeModeOption.dark
+          ? ThemeMode.dark
+          : ThemeMode.light,
       routerConfig: router,
       // ── Banner offline global (Módulo 4.2) ──────────────────────────────
       // Envuelve la navegación completa para que el banner aparezca en
@@ -104,4 +121,31 @@ class BiofrostApp extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Widget wrapper that removes the native splash after the first frame is
+/// rendered and triggers optional background bootstrapping.
+class SplashRemover extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onBootstrapped;
+
+  const SplashRemover({required this.child, this.onBootstrapped, super.key});
+
+  @override
+  State<SplashRemover> createState() => _SplashRemoverState();
+}
+
+class _SplashRemoverState extends State<SplashRemover> {
+  @override
+  void initState() {
+    super.initState();
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      // Remove native splash once first Flutter frame is drawn.
+      FlutterNativeSplash.remove();
+      widget.onBootstrapped?.call();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

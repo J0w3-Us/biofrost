@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:biofrost/core/errors/app_exceptions.dart';
-import 'package:biofrost/core/models/comment_read_model.dart';
-import 'package:biofrost/core/services/supabase_service.dart';
+import 'package:biofrost/features/project_detail/data/datasources/comments_datasource.dart';
+import 'package:biofrost/features/project_detail/domain/models/comment_read_model.dart';
 import 'package:biofrost/features/auth/providers/auth_provider.dart';
 
 // ── Estado ─────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ class CommentsNotifier extends FamilyNotifier<CommentsState, String> {
     return const CommentsState(isLoading: true);
   }
 
-  SupabaseService get _supabase => ref.read(supabaseServiceProvider);
+  CommentsDatasource get _supabase => ref.read(commentsDatasourceProvider);
 
   // ── CQRS Query ──────────────────────────────────────────────────────
 

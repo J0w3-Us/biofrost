@@ -3,7 +3,6 @@ import 'package:equatable/equatable.dart';
 /// ReadModel de comentario — para mostrar la lista de comentarios de un proyecto.
 ///
 /// CQRS Query: solo lectura, optimizado para la UI.
-/// Separado del modelo de escritura ([PostCommentCommand]).
 class CommentReadModel extends Equatable {
   const CommentReadModel({
     required this.id,
@@ -25,12 +24,10 @@ class CommentReadModel extends Equatable {
   final String? userAvatarUrl;
 
   /// True si el comentario pertenece al usuario autenticado actual.
-  /// Permite alineación diferente y opción de eliminar.
   final bool isOwn;
 
-  // ── Computed ────────────────────────────────────────────────────────
+  // ── Computed ───────────────────────────────────────────────────────
 
-  /// Fecha relativa legible por humanos.
   String get fechaDisplay {
     final now = DateTime.now();
     final diff = now.difference(createdAt);
@@ -41,7 +38,6 @@ class CommentReadModel extends Equatable {
     return '${createdAt.day}/${createdAt.month}/${createdAt.year}';
   }
 
-  /// Iniciales del usuario para el avatar fallback.
   String get initials {
     final parts = userName.trim().split(' ');
     if (parts.length >= 2) {
@@ -71,31 +67,4 @@ class CommentReadModel extends Equatable {
       isOwn: currentUserId != null && row['user_id'] == currentUserId,
     );
   }
-}
-
-// ── CommandModel: Publicar comentario (CQRS Command) ──────────────────────
-
-/// CommandModel para publicar un nuevo comentario en un proyecto.
-///
-/// Endpoint futuro: POST /api/comments
-class PostCommentCommand {
-  const PostCommentCommand({
-    required this.projectId,
-    required this.userId,
-    required this.userName,
-    required this.text,
-    this.userAvatarUrl,
-  });
-
-  final String projectId;
-  final String userId;
-  final String userName;
-  final String text;
-  final String? userAvatarUrl;
-
-  Map<String, dynamic> toJson() => {
-        'projectId': projectId,
-        'userId': userId,
-        'text': text,
-      };
 }

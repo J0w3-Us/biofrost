@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:biofrost/core/errors/app_exceptions.dart';
@@ -22,15 +25,24 @@ class ShowcasePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(showcaseProvider);
+    // Precarga los primeros thumbnails para mejorar percepción de velocidad.
+    if (!state.isLoading &&
+        !state.isEmpty &&
+        state.filteredProjects.isNotEmpty) {
+      _precacheThumbnails(context, state.filteredProjects);
+    }
     final user = ref.watch(currentUserProvider);
     final isDocente = user?.isDocente ?? false;
 
     return Scaffold(
-      backgroundColor: AppTheme.surface0,
+      // RF-BNB: Barra de navegación inferior con 3 tabs según rol (spec §1 Barra de Navegación Inferior)
+      // Visitante: Inicio / Ranking / Entrar
+      // Docente  : Inicio / Ranking / Perfil
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.surface1,
-          border: Border(top: BorderSide(color: AppTheme.border, width: 1)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          border:
+              const Border(top: BorderSide(color: AppTheme.border, width: 1)),
         ),
         child: SafeArea(
           child: SizedBox(
@@ -44,7 +56,13 @@ class ShowcasePage extends ConsumerWidget {
                   onTap: () {},
                 ),
                 _ShowcaseNavItem(
-                  icon: Icons.person_rounded,
+                  icon: Icons.leaderboard_rounded,
+                  label: 'Ranking',
+                  isSelected: false,
+                  onTap: () => context.go(AppRoutes.ranking),
+                ),
+                _ShowcaseNavItem(
+                  icon: isDocente ? Icons.person_rounded : Icons.login_rounded,
                   label: isDocente ? 'Perfil' : 'Entrar',
                   isSelected: false,
                   onTap: () => context.go(
@@ -58,8 +76,7 @@ class ShowcasePage extends ConsumerWidget {
       ),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _buildAppBar(
-              context, ref, isDocente, user?.nombre, innerBoxIsScrolled),
+          _buildAppBar(context, user?.nombre, innerBoxIsScrolled),
         ],
         body: Column(
           children: [
@@ -75,52 +92,39 @@ class ShowcasePage extends ConsumerWidget {
     );
   }
 
+  void _precacheThumbnails(BuildContext context, List projects) {
+    // Solo precachear algunas imágenes pequeñas para no bloquear la UI.
+    final limit = projects.length < 4 ? projects.length : 4;
+    Future.microtask(() {
+      for (var i = 0; i < limit; i++) {
+        final url = projects[i].thumbnailUrl;
+        if (url != null && url.isNotEmpty) {
+          precacheImage(CachedNetworkImageProvider(url), context);
+        }
+      }
+    });
+  }
+
   Widget _buildAppBar(
     BuildContext context,
-    WidgetRef ref,
-    bool isDocente,
     String? userName,
     bool scrolled,
   ) {
     return SliverAppBar(
       pinned: true,
       floating: true,
-      backgroundColor: AppTheme.surface0,
       surfaceTintColor: Colors.transparent,
       title: Text(
         userName ?? 'Inicio',
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Inter',
           fontSize: 20,
           fontWeight: FontWeight.w700,
-          color: AppTheme.textPrimary,
+          color: Theme.of(context).colorScheme.onSurface,
           letterSpacing: -0.5,
         ),
       ),
-      actions: [
-        // Botón Ranking
-        IconButton(
-          icon: const Icon(Icons.leaderboard_rounded,
-              color: AppTheme.textSecondary),
-          tooltip: 'Ranking',
-          onPressed: () => context.go(AppRoutes.ranking),
-        ),
-        // Login (solo visitantes)
-        if (!isDocente)
-          TextButton(
-            onPressed: () => context.go(AppRoutes.login),
-            child: const Text(
-              'Docente',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-        const SizedBox(width: AppTheme.sp8),
-      ],
+      actions: const [],
     );
   }
 
@@ -154,7 +158,7 @@ class ShowcasePage extends ConsumerWidget {
 
     return RefreshIndicator(
       color: AppTheme.white,
-      backgroundColor: AppTheme.surface2,
+      backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
       onRefresh: () =>
           ref.read(showcaseProvider.notifier).load(forceRefresh: true),
       child: CustomScrollView(
@@ -192,7 +196,7 @@ class ShowcasePage extends ConsumerWidget {
                   return ProjectCard(
                     project: project,
                     onTap: () =>
-                        context.go(AppRoutes.projectDetailOf(project.id)),
+                        context.push(AppRoutes.projectDetailOf(project.id)),
                   );
                 },
                 childCount: state.filteredProjects.length,
@@ -218,9 +222,12 @@ class _SearchAndFilters extends StatefulWidget {
 
 class _SearchAndFiltersState extends State<_SearchAndFilters> {
   final _searchCtrl = TextEditingController();
+  // RF-SEARCH: Debounce de 300ms para búsqueda full-text (spec §4 Dashboard)
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -231,7 +238,7 @@ class _SearchAndFiltersState extends State<_SearchAndFilters> {
     final state = widget.state;
 
     return Container(
-      color: AppTheme.surface0,
+      color: Theme.of(context).scaffoldBackgroundColor,
       padding: const EdgeInsets.fromLTRB(
         AppTheme.sp16,
         AppTheme.sp8,
@@ -244,17 +251,24 @@ class _SearchAndFiltersState extends State<_SearchAndFilters> {
           Container(
             height: 44,
             decoration: BoxDecoration(
-              color: AppTheme.surface2,
+              color: Theme.of(context).colorScheme.secondaryContainer,
               borderRadius: AppTheme.bFull,
               border: Border.all(color: AppTheme.border),
             ),
             child: TextField(
               controller: _searchCtrl,
-              onChanged: notifier.applySearch,
-              style: const TextStyle(
+              onChanged: (value) {
+                // RF-SEARCH: 300ms debounce — spec §4 Dashboard
+                _debounce?.cancel();
+                _debounce = Timer(
+                  const Duration(milliseconds: 300),
+                  () => notifier.applySearch(value),
+                );
+              },
+              style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 14,
-                color: AppTheme.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               decoration: InputDecoration(
                 hintText: 'Buscar proyectos…',

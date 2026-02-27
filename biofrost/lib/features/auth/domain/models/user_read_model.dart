@@ -3,10 +3,6 @@ import 'package:equatable/equatable.dart';
 /// ReadModel del usuario — optimizado para UI (CQRS Query).
 ///
 /// Mapea el DTO del backend .NET (PascalCase) a Dart (camelCase).
-/// Documentado en:
-/// - IntegradorHub/docs/frontend/02_AUTH.md § Modelo de Datos del Usuario
-/// - IntegradorHub/docs/Profile_Documentation.md § Esquema de la Colección users
-///
 /// Solo contiene campos de lectura; nunca se usa para operaciones de escritura.
 class UserReadModel extends Equatable {
   const UserReadModel({
@@ -27,35 +23,35 @@ class UserReadModel extends Equatable {
     this.asignaciones,
   });
 
-  // ── Campos comunes a todos los roles ────────────────────────────────
-  final String userId;       // Firebase UID
+  // ── Campos comunes a todos los roles ──────────────────────────────
+  final String userId; // Firebase UID
   final String email;
   final String nombre;
+
   /// 'Docente' | 'Alumno' | 'admin' | 'SuperAdmin' | 'Invitado'
   final String rol;
   final String? apellidoPaterno;
   final String? apellidoMaterno;
   final String? fotoUrl;
 
-  // ── Solo Alumno ─────────────────────────────────────────────────────
+  // ── Solo Alumno ────────────────────────────────────────────────────
   final String? grupoId;
   final String? carreraId;
   final String? matricula;
 
-  // ── Solo Docente ────────────────────────────────────────────────────
+  // ── Solo Docente ───────────────────────────────────────────────────
   final String? cedula;
   final String? especialidadDocente;
   final String? profesion;
-  /// Lista de asignaciones del docente:
-  /// [{ carreraId, materiaId, gruposIds: [] }]
+
+  /// Lista de asignaciones: [{ carreraId, materiaId, gruposIds: [] }]
   final List<Map<String, dynamic>>? asignaciones;
 
-  // ── Solo Visitante ──────────────────────────────────────────────────
+  // ── Solo Visitante ─────────────────────────────────────────────────
   final String? organizacion;
 
-  // ── Computed ────────────────────────────────────────────────────────
+  // ── Computed ───────────────────────────────────────────────────────
 
-  /// Nombre completo: nombre + apellidos (si existen).
   String get nombreCompleto {
     final partes = [nombre, apellidoPaterno, apellidoMaterno]
         .where((p) => p != null && p.isNotEmpty)
@@ -67,16 +63,14 @@ class UserReadModel extends Equatable {
   bool get isVisitante => rol == 'Invitado';
   bool get isAdmin => rol == 'admin' || rol == 'SuperAdmin';
 
-  /// URL de avatar: fotoUrl del backend o fallback a ui-avatars.com.
   String get avatarUrl {
     if (fotoUrl != null && fotoUrl!.isNotEmpty) return fotoUrl!;
     final encoded = Uri.encodeComponent(nombreCompleto);
     return 'https://ui-avatars.com/api/?name=$encoded&background=111&color=fff&size=128';
   }
 
-  // ── Factory: desde JSON del backend .NET ────────────────────────────
+  // ── Factory: desde JSON del backend .NET ──────────────────────────
 
-  /// Normaliza PascalCase del backend → camelCase de Dart.
   factory UserReadModel.fromJson(Map<String, dynamic> json) {
     return UserReadModel(
       userId: _str(json, ['userId', 'UserId', 'uid', 'Uid']) ?? '',
@@ -90,8 +84,8 @@ class UserReadModel extends Equatable {
       carreraId: _str(json, ['carreraId', 'CarreraId']),
       matricula: _str(json, ['matricula', 'Matricula']),
       cedula: _str(json, ['cedula', 'Cedula']),
-      especialidadDocente: _str(
-          json, ['especialidadDocente', 'EspecialidadDocente']),
+      especialidadDocente:
+          _str(json, ['especialidadDocente', 'EspecialidadDocente']),
       profesion: _str(json, ['profesion', 'Profesion']),
       organizacion: _str(json, ['organizacion', 'Organizacion']),
       asignaciones: (json['asignaciones'] ?? json['Asignaciones'])
@@ -116,12 +110,20 @@ class UserReadModel extends Equatable {
         'organizacion': organizacion,
       };
 
-  // ── Equatable ────────────────────────────────────────────────────────
   @override
   List<Object?> get props => [
-        userId, email, nombre, rol, fotoUrl,
-        grupoId, carreraId, matricula,
-        cedula, especialidadDocente, profesion, organizacion,
+        userId,
+        email,
+        nombre,
+        rol,
+        fotoUrl,
+        grupoId,
+        carreraId,
+        matricula,
+        cedula,
+        especialidadDocente,
+        profesion,
+        organizacion,
       ];
 
   UserReadModel copyWith({
@@ -150,9 +152,8 @@ class UserReadModel extends Equatable {
   }
 }
 
-// ── Helper de normalización PascalCase/camelCase ───────────────────────
+// ── Helpers de normalización PascalCase/camelCase ─────────────────────
 
-/// Intenta obtener un String buscando múltiples claves (PascalCase y camelCase).
 String? _str(Map<String, dynamic> json, List<String> keys) {
   for (final key in keys) {
     final val = json[key];

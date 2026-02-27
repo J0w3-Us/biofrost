@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:biofrost/core/errors/app_exceptions.dart';
-import 'package:biofrost/core/models/project_read_model.dart';
+import 'package:biofrost/features/showcase/domain/models/project_read_model.dart';
 import 'package:biofrost/core/router/app_router.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
 import 'package:biofrost/core/widgets/ui_kit.dart';
+import 'package:biofrost/features/auth/providers/auth_provider.dart';
 import 'package:biofrost/features/showcase/providers/projects_provider.dart';
 
 /// Pantalla de Ranking — clasificación de proyectos por puntuación.
@@ -20,15 +21,50 @@ class RankingPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(rankingProvider);
+    final user = ref.watch(currentUserProvider);
+    final isDocente = user?.isDocente ?? false;
 
     return Scaffold(
-      backgroundColor: AppTheme.surface0,
+      // RF-BNB: Ranking tab seleccionado (spec §1 Barra de Navegación Inferior)
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          border:
+              const Border(top: BorderSide(color: AppTheme.border, width: 1)),
+        ),
+        child: SafeArea(
+          child: SizedBox(
+            height: 60,
+            child: Row(
+              children: [
+                _RankingNavItem(
+                  icon: Icons.home_rounded,
+                  label: 'Inicio',
+                  isSelected: false,
+                  onTap: () => context.go(AppRoutes.showcase),
+                ),
+                _RankingNavItem(
+                  icon: Icons.leaderboard_rounded,
+                  label: 'Ranking',
+                  isSelected: true,
+                  onTap: () {},
+                ),
+                _RankingNavItem(
+                  icon: isDocente ? Icons.person_rounded : Icons.login_rounded,
+                  label: isDocente ? 'Perfil' : 'Entrar',
+                  isSelected: false,
+                  onTap: () => context.go(
+                    isDocente ? AppRoutes.profile : AppRoutes.login,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       appBar: AppBar(
         title: const Text('Ranking'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => context.go(AppRoutes.showcase),
-        ),
+        automaticallyImplyLeading: false,
       ),
       body: _buildBody(context, state, ref),
     );
@@ -60,7 +96,7 @@ class RankingPage extends ConsumerWidget {
 
     return RefreshIndicator(
       color: AppTheme.white,
-      backgroundColor: AppTheme.surface2,
+      backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
       onRefresh: () =>
           ref.read(rankingProvider.notifier).load(forceRefresh: true),
       child: CustomScrollView(
@@ -92,7 +128,7 @@ class RankingPage extends ConsumerWidget {
                 return _RankingRow(
                   project: project,
                   position: position,
-                  onTap: () => context.go(
+                  onTap: () => context.push(
                     AppRoutes.projectDetailOf(project.id),
                   ),
                 );
@@ -198,7 +234,7 @@ class _PodiumColumn extends StatelessWidget {
               fontFamily: 'Inter',
               fontSize: isFirst ? 12 : 11,
               fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
             textAlign: TextAlign.center,
             maxLines: 2,
@@ -224,7 +260,7 @@ class _PodiumColumn extends StatelessWidget {
           Container(
             height: height,
             decoration: BoxDecoration(
-              color: AppTheme.surface1,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(AppTheme.radiusSM),
               ),
@@ -341,7 +377,60 @@ class _RankingRow extends StatelessWidget {
   }
 }
 
-// ── Skeleton ────────────────────────────────────────────────────────
+// ── _RankingNavItem ─────────────────────────────────────────────────────
+
+/// Item de navegación inferior reutilizable en la pantalla de Ranking.
+class _RankingNavItem extends StatelessWidget {
+  const _RankingNavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.surface3 : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Icon(
+                icon,
+                size: 22,
+                color: isSelected ? AppTheme.white : AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? AppTheme.white : AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _RankingSkeleton extends StatelessWidget {
   const _RankingSkeleton();

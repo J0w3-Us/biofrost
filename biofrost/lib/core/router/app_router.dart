@@ -48,7 +48,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
-    initialLocation: AppRoutes.showcase,
+    // Inicia en login; si hay sesión activa el redirect lleva a showcase.
+    initialLocation: AppRoutes.login,
     debugLogDiagnostics: true,
     // refreshListenable hace que redirect() se re-evalúe cada vez que
     // _AuthRouterNotifier llama notifyListeners() (= cada cambio de auth).
@@ -72,13 +73,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Mientras carga → no redirigir (splash)
       if (authState is AuthStateLoading) return null;
 
-      // Docente autenticado en login → ir a showcase (panel consolidado)
-      if (location == AppRoutes.login && authState is AuthStateAuthenticated) {
-        return AppRoutes.showcase;
-      }
-
-      // Visitante en login → showcase
-      if (location == AppRoutes.login && authState is AuthStateVisitor) {
+      // Docente o visitante con sesión activa en login → ir a showcase
+      if (location == AppRoutes.login &&
+          (authState is AuthStateAuthenticated ||
+              authState is AuthStateVisitor)) {
         return AppRoutes.showcase;
       }
 

@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:biofrost/core/errors/app_exceptions.dart';
-import 'package:biofrost/core/models/star_rating_read_model.dart';
-import 'package:biofrost/core/repositories/project_repository.dart';
+import 'package:biofrost/features/project_detail/domain/models/star_rating_read_model.dart';
+import 'package:biofrost/features/showcase/data/project_repository.dart';
 import 'package:biofrost/features/auth/providers/auth_provider.dart';
-import 'package:biofrost/features/showcase/providers/projects_provider.dart';
 
 // ── Estado ─────────────────────────────────────────────────────────────────
 

@@ -1,18 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:biofrost/core/errors/app_exceptions.dart';
-import 'package:biofrost/core/models/evaluation_read_model.dart';
-import 'package:biofrost/core/repositories/evaluation_repository.dart';
+import 'package:biofrost/features/evaluations/data/evaluation_repository.dart';
+import 'package:biofrost/features/evaluations/domain/commands/evaluation_commands.dart';
+import 'package:biofrost/features/evaluations/domain/models/evaluation_read_model.dart';
 import 'package:biofrost/core/services/analytics_service.dart';
 import 'package:biofrost/features/auth/providers/auth_provider.dart';
-
-// ── Provider base: Repositorio ──────────────────────────────────────────
-
-final evaluationRepositoryProvider = Provider<EvaluationRepository>((ref) {
-  return EvaluationRepository(
-    apiService: ref.watch(apiServiceProvider),
-  );
-});
 
 // ── Estado del panel de evaluaciones ───────────────────────────────────
 

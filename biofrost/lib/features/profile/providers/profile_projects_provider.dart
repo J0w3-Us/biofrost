@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:biofrost/features/showcase/providers/projects_provider.dart';
-import 'package:biofrost/core/models/project_read_model.dart';
+import 'package:biofrost/features/showcase/data/project_repository.dart';
+import 'package:biofrost/features/showcase/domain/models/project_read_model.dart';
 
 /// Proyectos asociados al usuario (lider) — usados para extraer stacks y banner.
 final userProjectsProvider =

@@ -1,29 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../config/app_config.dart';
-import '../models/comment_read_model.dart';
+import 'package:biofrost/core/config/app_config.dart';
+import 'package:biofrost/features/project_detail/domain/models/comment_read_model.dart';
 
-/// Servicio de acceso a Supabase.
+/// Datasource de comentarios — acceso a Supabase tabla `comments`.
 ///
-/// Responsabilidades:
-/// - Leer comentarios de la tabla `comments`.
-/// - Insertar nuevos comentarios.
-/// - Construir URLs públicas de Supabase Storage.
-///
-/// Instanciado como singleton vía [supabaseServiceProvider].
-class SupabaseService {
+/// Reemplaza el antiguo SupabaseService, ahora enfocado únicamente
+/// en el dominio de comentarios de project_detail.
+class CommentsDatasource {
   SupabaseClient get _client => Supabase.instance.client;
 
-  // ── Storage ─────────────────────────────────────────────────────────
+  // ── Storage helper ─────────────────────────────────────────────────
 
-  /// Devuelve la URL pública de un archivo en `project-files`.
-  /// [filePath]: ruta relativa al bucket, ej.: "projects/abc/img.jpg"
+  /// URL pública de un archivo en el bucket Supabase Storage.
   String publicUrl(String filePath) => AppConfig.storageUrl(filePath);
 
-  // ── Comments ─────────────────────────────────────────────────────────
+  // ── CQRS Query: Obtener comentarios ───────────────────────────────
 
-  /// Obtiene los comentarios de un proyecto ordenados del más reciente al más antiguo.
+  /// Carga comentarios de un proyecto ordenados del más reciente al más antiguo.
   Future<List<CommentReadModel>> getComments(String projectId) async {
     final response = await _client
         .from('comments')
@@ -39,7 +34,7 @@ class SupabaseService {
         .toList();
   }
 
-  /// Obtiene comentarios indicando el [currentUserId] para marcar `isOwn`.
+  /// Carga comentarios marcando los propios del [currentUserId].
   Future<List<CommentReadModel>> getCommentsForUser(
     String projectId, {
     required String? currentUserId,
@@ -58,7 +53,9 @@ class SupabaseService {
         .toList();
   }
 
-  /// Inserta un comentario y devuelve el registro creado.
+  // ── CQRS Command: Publicar comentario ─────────────────────────────
+
+  /// INSERT en `comments` — retorna el registro creado.
   Future<CommentReadModel> postComment({
     required String projectId,
     required String userId,
@@ -78,14 +75,11 @@ class SupabaseService {
         .select()
         .single();
 
-    return CommentReadModel.fromSupabaseRow(
-      response,
-      currentUserId: userId,
-    );
+    return CommentReadModel.fromSupabaseRow(response, currentUserId: userId);
   }
 }
 
-/// Provider singleton del [SupabaseService].
-final supabaseServiceProvider = Provider<SupabaseService>((_) {
-  return SupabaseService();
+/// Provider singleton del [CommentsDatasource].
+final commentsDatasourceProvider = Provider<CommentsDatasource>((_) {
+  return CommentsDatasource();
 });

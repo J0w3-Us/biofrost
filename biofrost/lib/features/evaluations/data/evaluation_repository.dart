@@ -1,15 +1,15 @@
-import '../config/api_endpoints.dart';
-import '../errors/app_exceptions.dart';
-import '../models/evaluation_read_model.dart';
-import '../services/api_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Repositorio de evaluaciones.
+import 'package:biofrost/core/config/api_endpoints.dart';
+import 'package:biofrost/core/errors/app_exceptions.dart';
+import 'package:biofrost/core/services/api_service.dart';
+import 'package:biofrost/features/auth/providers/auth_provider.dart';
+import 'package:biofrost/features/evaluations/domain/commands/evaluation_commands.dart';
+import 'package:biofrost/features/evaluations/domain/models/evaluation_read_model.dart';
+
+/// Repositorio de evaluaciones — CQRS (Queries + Commands).
 ///
-/// CQRS:
-/// - Queries: [getEvaluationsByProject]
-/// - Commands: [createEvaluation], [toggleVisibility]
-///
-/// Permisos (documentado en 05_EVALUATIONS.md § Permisos de Evaluación):
+/// Permisos (documentado en 05_EVALUATIONS.md):
 /// - Ver: todos los usuarios autenticados
 /// - Crear sugerencia: cualquier Docente
 /// - Crear evaluación oficial: solo Docente titular o Admin
@@ -24,12 +24,7 @@ class EvaluationRepository {
 
   // ── CQRS Query: Obtener evaluaciones ──────────────────────────────
 
-  /// Obtiene todas las evaluaciones de un proyecto, ordenadas por fecha desc.
-  ///
-  /// Endpoint: GET /api/evaluations/project/{projectId}
-  ///
-  /// Fallback offline: si la solicitud falla y hay datos en caché (aunque
-  /// expirados), los devuelve en lugar de lanzar excepción.
+  /// GET /api/evaluations/project/{projectId}
   Future<List<EvaluationReadModel>> getEvaluationsByProject(
     String projectId, {
     bool forceRefresh = false,
@@ -46,7 +41,6 @@ class EvaluationRepository {
       );
 
       final evaluations = _parseList(response.data ?? []);
-      // Ordenar por fecha descendente (más reciente primero)
       evaluations.sort(
         (a, b) =>
             (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)),
@@ -55,39 +49,28 @@ class EvaluationRepository {
       _cache[projectId] = _CacheEntry(evaluations);
       return evaluations;
     } catch (e) {
-      // Fallback offline: devolver caché obsoleto si existe
       if (cached != null) return cached.data;
       rethrow;
     }
   }
 
   /// Calificación oficial más reciente de un proyecto.
-  ///
-  /// Según 05_EVALUATIONS.md: "El grade actual es siempre la calificación
-  /// oficial más reciente, no un promedio."
   double? getCurrentGrade(List<EvaluationReadModel> evaluations) {
-    final oficial = evaluations.firstWhere(
-      (e) => e.isOficial && e.hasGrade,
-      orElse: () => throw const NotFoundException(),
-    );
-    return oficial.calificacion;
+    try {
+      return evaluations
+          .firstWhere((e) => e.isOficial && e.hasGrade)
+          .calificacion;
+    } catch (_) {
+      return null;
+    }
   }
 
   // ── CQRS Command: Crear evaluación ────────────────────────────────
 
-  /// Crea una nueva evaluación (sugerencia u oficial).
-  ///
-  /// Valida permisos antes de enviar:
-  /// - Solo Docentes pueden crear evaluaciones.
-  /// - Solo el Docente titular puede emitir evaluaciones oficiales.
-  ///
-  /// Endpoint: POST /api/evaluations
-  ///
-  /// Retorna la evaluación creada y actualiza el caché local.
+  /// POST /api/evaluations
   Future<EvaluationReadModel> createEvaluation(
     CreateEvaluationCommand command,
   ) async {
-    // Validación de contenido
     if (command.contenido.trim().isEmpty) {
       throw const BusinessException(
         'El contenido de la evaluación no puede estar vacío.',
@@ -95,7 +78,6 @@ class EvaluationRepository {
       );
     }
 
-    // Validación de calificación oficial
     if (command.tipo == 'oficial') {
       if (command.calificacion == null) {
         throw const BusinessException(
@@ -117,14 +99,12 @@ class EvaluationRepository {
     );
 
     if (response.data == null) {
-      throw const ServerException(
-        message: 'Error al crear la evaluación.',
-      );
+      throw const ServerException(message: 'Error al crear la evaluación.');
     }
 
     final created = EvaluationReadModel.fromJson(response.data!);
 
-    // Actualizar caché: agregar la nueva evaluación al inicio de la lista
+    // Actualizar caché
     final key = command.projectId;
     if (_cache.containsKey(key)) {
       final updated = [created, ..._cache[key]!.data];
@@ -136,83 +116,37 @@ class EvaluationRepository {
 
   // ── CQRS Command: Cambiar visibilidad (Optimistic Update) ─────────
 
-  /// Cambia la visibilidad pública/privada de una evaluación.
+  /// PATCH /api/evaluations/{id}/visibility
   ///
-  /// Implementa Optimistic Update:
-  /// 1. Actualiza el estado local inmediatamente.
-  /// 2. Llama al backend.
-  /// 3. Si falla: retorna la evaluación con el estado original para rollback.
-  ///
-  /// Endpoint: PATCH /api/evaluations/{id}/visibility
-  ///
-  /// Retorna:
-  /// - La evaluación con el nuevo estado si el backend confirma.
-  /// - null si hubo un error (la UI debe hacer rollback).
-  Future<EvaluationReadModel?> toggleVisibility(
+  /// Retorna null en éxito. La UI hace rollback si se lanza excepción.
+  Future<void> toggleVisibility(
     ToggleEvaluationVisibilityCommand command,
     String projectId,
   ) async {
-    try {
-      await _api.patch(
-        ApiEndpoints.evaluationVisibility(command.evaluationId),
-        data: command.toJson(),
-      );
+    await _api.patch(
+      ApiEndpoints.evaluationVisibility(command.evaluationId),
+      data: command.toJson(),
+    );
 
-      // Actualizar caché
-      if (_cache.containsKey(projectId)) {
-        final updated = _cache[projectId]!.data.map((e) {
-          if (e.id == command.evaluationId) {
-            return e.copyWith(esPublico: command.esPublico);
-          }
-          return e;
-        }).toList();
-        _cache[projectId] = _CacheEntry(updated);
-      }
-
-      return null; // Éxito: null significa "no hubo error"
-    } on AppException {
-      rethrow; // El provider hace rollback con el estado anterior
+    // Actualizar caché local
+    if (_cache.containsKey(projectId)) {
+      final updated = _cache[projectId]!.data.map((e) {
+        if (e.id == command.evaluationId) {
+          return e.copyWith(esPublico: command.esPublico);
+        }
+        return e;
+      }).toList();
+      _cache[projectId] = _CacheEntry(updated);
     }
-  }
-
-  // ── Permisos (lógica documentada en 05_EVALUATIONS.md) ────────────
-
-  /// Verifica si un usuario puede emitir evaluación oficial.
-  ///
-  /// Condición: (isDocente && isTitular) || isAdmin
-  bool canGradeOfficially({
-    required String userRol,
-    required String? userId,
-    required String? docenteTitularId,
-  }) {
-    final isDocente = userRol == 'Docente';
-    final isAdmin = userRol == 'admin' || userRol == 'SuperAdmin';
-    final isTitular = userId != null && userId == docenteTitularId;
-    return isDocente && (isTitular || isAdmin);
-  }
-
-  /// Verifica si un usuario puede enviar sugerencias.
-  bool canSendSuggestion(String userRol) => userRol == 'Docente';
-
-  /// Verifica si un usuario puede cambiar visibilidad.
-  bool canToggleVisibility(String userRol) {
-    return userRol == 'Docente' ||
-        userRol == 'admin' ||
-        userRol == 'SuperAdmin';
   }
 
   // ── CQRS Query: Historial por docente ─────────────────────────────
 
-  /// Obtiene evaluaciones emitidas por un docente filtrando desde el
-  /// caché local de evaluaciones ya cargadas por proyecto.
-  ///
-  /// NOTA: el backend no expone un endpoint /evaluations/docente/{id}.
-  /// Esta implementación filtra desde el caché en memoria.
-  /// Si el caché está vacío (primer uso), devuelve lista vacía.
+  /// Filtra evaluaciones del caché local por docenteId.
+  /// No existe endpoint backend dedicado; filtra desde caché en memoria.
   Future<List<EvaluationReadModel>> getEvaluationsByDocente(
-    String docenteId, {
-    bool forceRefresh = false,
-  }) async {
+    String docenteId,
+  ) async {
     final all = _cache.values
         .expand((entry) => entry.data)
         .where((e) => e.docenteId == docenteId)
@@ -224,6 +158,27 @@ class EvaluationRepository {
     );
 
     return all;
+  }
+
+  // ── Permisos ───────────────────────────────────────────────────────
+
+  bool canGradeOfficially({
+    required String userRol,
+    required String? userId,
+    required String? docenteTitularId,
+  }) {
+    final isDocente = userRol == 'Docente';
+    final isAdmin = userRol == 'admin' || userRol == 'SuperAdmin';
+    final isTitular = userId != null && userId == docenteTitularId;
+    return isDocente && (isTitular || isAdmin);
+  }
+
+  bool canSendSuggestion(String userRol) => userRol == 'Docente';
+
+  bool canToggleVisibility(String userRol) {
+    return userRol == 'Docente' ||
+        userRol == 'admin' ||
+        userRol == 'SuperAdmin';
   }
 
   // ── Cache invalidation ─────────────────────────────────────────────
@@ -250,3 +205,10 @@ class _CacheEntry<T> {
 
   bool get isExpired => DateTime.now().isAfter(_expiry);
 }
+
+/// Provider del repositorio de evaluaciones.
+final evaluationRepositoryProvider = Provider<EvaluationRepository>((ref) {
+  return EvaluationRepository(
+    apiService: ref.watch(apiServiceProvider),
+  );
+});

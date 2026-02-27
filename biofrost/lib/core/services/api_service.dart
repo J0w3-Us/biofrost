@@ -119,12 +119,31 @@ class ApiService {
   /// del [DioException]. Este método la extrae y la relanza como [AppException]
   /// para que los providers puedan capturarla con `on AppException catch (e)`.
   Future<Response<T>> _unwrap<T>(Future<Response<T>> Function() call) async {
-    try {
-      return await call();
-    } on DioException catch (e) {
-      if (e.error is AppException) throw e.error as AppException;
-      // Fallback por si el interceptor no mapeó el error
-      throw const NetworkException();
+    const int maxAttempts = 3;
+    int attempt = 0;
+    while (true) {
+      try {
+        return await call();
+      } on DioException catch (e) {
+        // Si el interceptor ya convirtió a AppException, propagarlo.
+        if (e.error is AppException) throw e.error as AppException;
+
+        // Solo reintentar para errores de conectividad/timeout.
+        final shouldRetry = e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.sendTimeout;
+
+        attempt++;
+        if (shouldRetry && attempt < maxAttempts) {
+          final backoffMs = 200 * (1 << (attempt - 1));
+          await Future.delayed(Duration(milliseconds: backoffMs));
+          continue; // retry
+        }
+
+        // No es reintentable o superó intentos → mapear a excepción de dominio.
+        throw const NetworkException();
+      }
     }
   }
 }

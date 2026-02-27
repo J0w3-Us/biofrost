@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 
-import 'package:biofrost/core/models/evaluation_read_model.dart';
-import 'package:biofrost/core/models/project_read_model.dart';
-import 'package:biofrost/core/models/user_read_model.dart';
+import 'package:biofrost/features/auth/domain/models/user_read_model.dart';
+import 'package:biofrost/features/evaluations/domain/models/evaluation_read_model.dart';
+import 'package:biofrost/features/showcase/domain/models/project_read_model.dart';
 import 'package:biofrost/core/router/app_router.dart';
 import 'package:biofrost/core/theme/app_theme.dart';
+import 'package:biofrost/core/utils/sanitize.dart';
 import 'package:biofrost/core/widgets/ui_kit.dart';
 import 'package:biofrost/features/auth/providers/auth_provider.dart';
 import 'package:biofrost/core/providers/theme_provider.dart';
@@ -35,13 +37,44 @@ class ProfilePage extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.surface0,
+      // RF-BNB: Perfil tab seleccionado (spec §1 Barra de Navegación Inferior)
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          border:
+              const Border(top: BorderSide(color: AppTheme.border, width: 1)),
+        ),
+        child: SafeArea(
+          child: SizedBox(
+            height: 60,
+            child: Row(
+              children: [
+                _ProfileNavItem(
+                  icon: Icons.home_rounded,
+                  label: 'Inicio',
+                  isSelected: false,
+                  onTap: () => context.go(AppRoutes.showcase),
+                ),
+                _ProfileNavItem(
+                  icon: Icons.leaderboard_rounded,
+                  label: 'Ranking',
+                  isSelected: false,
+                  onTap: () => context.go(AppRoutes.ranking),
+                ),
+                _ProfileNavItem(
+                  icon: Icons.person_rounded,
+                  label: 'Perfil',
+                  isSelected: true,
+                  onTap: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       appBar: AppBar(
         title: const Text('Perfil'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => context.go(AppRoutes.showcase),
-        ),
+        automaticallyImplyLeading: false,
         actions: [
           // Botón de cerrar sesión
           TextButton(
@@ -87,7 +120,7 @@ class ProfilePage extends ConsumerWidget {
                           image: NetworkImage(thumb),
                           fit: BoxFit.cover,
                           colorFilter: ColorFilter.mode(
-                            Colors.black.withOpacity(0.35),
+                            AppTheme.black.withAlpha(89),
                             BlendMode.darken,
                           ),
                         ),
@@ -119,76 +152,12 @@ class ProfilePage extends ConsumerWidget {
 
             const SizedBox(height: AppTheme.sp24),
             const BioDivider(),
-            const SizedBox(height: AppTheme.sp24),
-
-            // ── Sección única plegable: Información + Configuración ───────
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('Información y configuración'),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppTheme.sp12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Mostrar stacks tecnológicos del usuario (si existen)
-                      Builder(builder: (ctx) {
-                        final projectsAsync =
-                            ref.watch(userProjectsProvider(user.userId));
-                        return projectsAsync.when(
-                          loading: () => const SizedBox.shrink(),
-                          error: (_, __) => const SizedBox.shrink(),
-                          data: (projects) {
-                            final stacks = <String>{};
-                            for (final p in projects) {
-                              stacks.addAll(p.stackTecnologico);
-                            }
-                            if (stacks.isEmpty) return const SizedBox.shrink();
-                            return Wrap(
-                              spacing: AppTheme.sp8,
-                              runSpacing: AppTheme.sp8,
-                              children:
-                                  stacks.map((s) => BioChip(label: s)).toList(),
-                            );
-                          },
-                        );
-                      }),
-
-                      const SizedBox(height: AppTheme.sp12),
-
-                      // Tema
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Tema'),
-                          Consumer(builder: (ctx, r, _) {
-                            final mode = r.watch(themeProvider);
-                            final isLight = mode == AppThemeModeOption.light;
-                            return Switch(
-                              value: isLight,
-                              onChanged: (v) => r
-                                  .read(themeProvider.notifier)
-                                  .setMode(v
-                                      ? AppThemeModeOption.light
-                                      : AppThemeModeOption.dark),
-                            );
-                          }),
-                        ],
-                      ),
-
-                      const SizedBox(height: AppTheme.sp12),
-
-                      // Editar datos personales
-                      BioButton(
-                        label: 'Editar datos personales',
-                        onTap: () => _openEditDialog(context, ref, user),
-                        variant: BioButtonVariant.ghost,
-                        icon: Icons.edit_outlined,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            const SizedBox(height: AppTheme.sp16),
+            const _SectionTitle('Configuración'),
+            const SizedBox(height: AppTheme.sp8),
+            _SettingsList(
+              user: user,
+              onEditProfile: () => _openEditDialog(context, ref, user),
             ),
 
             // ── Datos académicos ──────────────────────────────────────
@@ -280,7 +249,6 @@ class ProfilePage extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surface1,
         shape: RoundedRectangleBorder(
           borderRadius: AppTheme.bLG,
           side: const BorderSide(color: AppTheme.border),
@@ -332,22 +300,62 @@ class ProfilePage extends ConsumerWidget {
   void _openEditDialog(
       BuildContext context, WidgetRef ref, UserReadModel user) {
     final nameController = TextEditingController(text: user.nombre);
+    final cedulaController = TextEditingController(text: user.cedula ?? '');
+    final especialidadController =
+        TextEditingController(text: user.especialidadDocente ?? '');
+    final profesionController =
+        TextEditingController(text: user.profesion ?? '');
+
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surface1,
         shape: RoundedRectangleBorder(
             borderRadius: AppTheme.bLG,
             side: const BorderSide(color: AppTheme.border)),
-        title: const Text('Editar datos'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Nombre'),
-            ),
-          ],
+        title: const Text('Editar datos personales'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre completo',
+                  prefixIcon: Icon(Icons.person_outline, size: 18),
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+              if (user.isDocente) ...[
+                const SizedBox(height: AppTheme.sp12),
+                TextField(
+                  controller: cedulaController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cédula',
+                    prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: AppTheme.sp12),
+                TextField(
+                  controller: especialidadController,
+                  decoration: const InputDecoration(
+                    labelText: 'Especialidad',
+                    prefixIcon: Icon(Icons.school_outlined, size: 18),
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: AppTheme.sp12),
+                TextField(
+                  controller: profesionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Profesión',
+                    prefixIcon: Icon(Icons.work_outline_rounded, size: 18),
+                  ),
+                  textInputAction: TextInputAction.done,
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -362,13 +370,18 @@ class ProfilePage extends ConsumerWidget {
                 await ref
                     .read(authProvider.notifier)
                     .updateDisplayName(newName);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('Datos actualizados'),
-                    backgroundColor: AppTheme.success));
+                // TODO: persist cedula/especialidad/profesión via backend endpoint
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Datos actualizados'),
+                      backgroundColor: AppTheme.success));
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Error: $e'),
-                    backgroundColor: AppTheme.error));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: AppTheme.error));
+                }
               }
             },
             child: const Text('Guardar'),
@@ -400,18 +413,41 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
+      imageQuality: 90,
     );
     if (pickedFile == null) return;
+    if (!mounted) return;
+
+    // Recorte nativo circular 1:1
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: pickedFile.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Recortar foto de perfil',
+          toolbarColor: Colors.black,
+          toolbarWidgetColor: Colors.white,
+          activeControlsWidgetColor: Colors.white,
+          backgroundColor: Colors.black,
+          cropStyle: CropStyle.circle,
+          hideBottomControls: false,
+        ),
+        IOSUiSettings(
+          title: 'Recortar foto',
+          cancelButtonTitle: 'Cancelar',
+          doneButtonTitle: 'Listo',
+          cropStyle: CropStyle.circle,
+        ),
+      ],
+    );
+    if (croppedFile == null) return;
     if (!mounted) return;
 
     setState(() => _isUploading = true);
     try {
       await ref
           .read(authProvider.notifier)
-          .updateProfilePhoto(File(pickedFile.path));
+          .updateProfilePhoto(File(croppedFile.path));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -437,80 +473,71 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Avatar grande con botón de cámara superpuesto
+        // Avatar con botón de cámara superpuesto
         Stack(
+          clipBehavior: Clip.none,
           children: [
             UserAvatar(
               name: user.nombreCompleto,
               imageUrl: user.fotoUrl,
-              size: 72,
+              size: 80,
               showBorder: true,
             ),
-            // Botón cámara circular (solo para Docentes / Admins)
             if (user.isDocente || user.isAdmin)
               Positioned(
-                right: 0,
-                bottom: 0,
+                right: -2,
+                bottom: -2,
                 child: GestureDetector(
                   onTap: _isUploading ? null : _pickAndUpload,
                   child: Container(
-                    width: 24,
-                    height: 24,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
-                      color: AppTheme.white,
+                      color: AppTheme.primary,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.border),
+                      border:
+                          Border.all(color: AppTheme.borderFocus, width: 1.5),
+                      boxShadow: AppTheme.shadowCard,
                     ),
                     child: _isUploading
                         ? const Padding(
-                            padding: EdgeInsets.all(4),
+                            padding: EdgeInsets.all(AppTheme.sp4),
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppTheme.black,
+                              color: AppTheme.textInverse,
                             ),
                           )
                         : const Icon(
                             Icons.camera_alt_rounded,
                             size: 14,
-                            color: AppTheme.black,
+                            color: AppTheme.textInverse,
                           ),
                   ),
                 ),
               ),
           ],
         ),
-        const SizedBox(width: AppTheme.sp16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                user.nombreCompleto,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                  letterSpacing: -0.5,
-                ),
+        const SizedBox(height: AppTheme.sp12),
+        Text(
+          user.nombreCompleto,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
               ),
-              const SizedBox(height: AppTheme.sp4),
-              Text(
-                user.email,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: AppTheme.sp8),
-              _RoleBadge(user.rol),
-            ],
-          ),
+          textAlign: TextAlign.center,
         ),
+        const SizedBox(height: AppTheme.sp4),
+        Text(
+          user.email,
+          style: Theme.of(context).textTheme.bodySmall,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: AppTheme.sp8),
+        _RoleBadge(user.rol),
       ],
     );
   }
@@ -554,80 +581,139 @@ class _DocenteKPIs extends ConsumerWidget {
             .length;
         final conNota = evaluations.where((e) => e.hasGrade).length;
 
-        return Row(
-          children: [
-            Expanded(
-                child: _KpiCard(
-              icon: Icons.assignment_outlined,
-              label: 'Evaluaciones',
-              value: '$total',
-            )),
-            const SizedBox(width: AppTheme.sp8),
-            Expanded(
-                child: _KpiCard(
-              icon: Icons.check_circle_outline_rounded,
-              label: 'Aprobados',
-              value: '$aprobados',
-              accent: AppTheme.success,
-            )),
-            const SizedBox(width: AppTheme.sp8),
-            Expanded(
-                child: _KpiCard(
-              icon: Icons.star_outline_rounded,
-              label: 'Con nota',
-              value: '$conNota',
-              accent: AppTheme.warning,
-            )),
-          ],
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: AppTheme.bMD,
+            border: Border.all(color: AppTheme.border),
+          ),
+          padding: const EdgeInsets.symmetric(
+              vertical: AppTheme.sp14, horizontal: AppTheme.sp8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _StatItem(
+                value: '$total',
+                label: 'Evaluaciones',
+              ),
+              _StatDivider(),
+              _StatItem(
+                value: '$aprobados',
+                label: 'Aprobados',
+                accent: AppTheme.success,
+              ),
+              _StatDivider(),
+              _StatItem(
+                value: '$conNota',
+                label: 'Con nota',
+                accent: AppTheme.warning,
+              ),
+            ],
+          ),
         );
       },
     );
   }
 }
 
-class _KpiCard extends StatelessWidget {
-  const _KpiCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.accent,
-  });
-  final IconData icon;
-  final String label;
+// ── Stat inline ──────────────────────────────────────────────────────────────
+class _StatItem extends StatelessWidget {
+  const _StatItem({required this.value, required this.label, this.accent});
   final String value;
+  final String label;
   final Color? accent;
 
   @override
   Widget build(BuildContext context) {
-    final color = accent ?? AppTheme.textSecondary;
+    final color = accent ?? AppTheme.textPrimary;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: VerticalDivider(
+        color: AppTheme.border,
+        thickness: 1,
+        width: AppTheme.sp24,
+      ),
+    );
+  }
+}
+
+// ── Settings list ─────────────────────────────────────────────────────────────
+class _SettingsList extends ConsumerWidget {
+  const _SettingsList({required this.user, required this.onEditProfile});
+  final UserReadModel user;
+  final VoidCallback onEditProfile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      padding: const EdgeInsets.all(AppTheme.sp12),
       decoration: BoxDecoration(
-        color: AppTheme.surface1,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: AppTheme.bMD,
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: AppTheme.sp6),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.edit_outlined, size: 20),
+            title: const Text('Editar datos personales'),
+            trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+            onTap: onEditProfile,
           ),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 10,
-              color: AppTheme.textDisabled,
+          Divider(height: 1, color: AppTheme.border),
+          Consumer(builder: (ctx, r, _) {
+            final mode = r.watch(themeProvider);
+            final isLight = mode == AppThemeModeOption.light;
+            return ListTile(
+              dense: true,
+              leading: Icon(
+                isLight ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                size: 20,
+              ),
+              title: const Text('Tema claro'),
+              trailing: Switch(
+                value: isLight,
+                onChanged: (v) => r.read(themeProvider.notifier).setMode(
+                      v ? AppThemeModeOption.light : AppThemeModeOption.dark,
+                    ),
+              ),
+            );
+          }),
+          Divider(height: 1, color: AppTheme.border),
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.logout_rounded,
+                size: 20, color: AppTheme.error),
+            title: const Text(
+              'Cerrar sesión',
+              style: TextStyle(color: AppTheme.error),
             ),
+            onTap: () => ref.read(authProvider.notifier).logout(),
           ),
         ],
       ),
@@ -642,11 +728,12 @@ class _RoleBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.sp10, vertical: AppTheme.sp4),
       decoration: BoxDecoration(
-        color: AppTheme.surface2,
+        color: AppTheme.primary.withAlpha(30),
         borderRadius: AppTheme.bFull,
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AppTheme.borderFocus.withAlpha(80)),
       ),
       child: Text(
         rol.toUpperCase(),
@@ -654,7 +741,7 @@ class _RoleBadge extends StatelessWidget {
           fontFamily: 'Inter',
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: AppTheme.textSecondary,
+          color: AppTheme.primary,
           letterSpacing: 1,
         ),
       ),
@@ -669,14 +756,11 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      title,
-      style: const TextStyle(
-        fontFamily: 'Inter',
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.textDisabled,
-        letterSpacing: 0.5,
-      ),
+      title.toUpperCase(),
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
+          ),
     );
   }
 }
@@ -745,7 +829,7 @@ class _AssignmentTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppTheme.sp8),
       padding: const EdgeInsets.all(AppTheme.sp12),
       decoration: BoxDecoration(
-        color: AppTheme.surface1,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: AppTheme.bMD,
         border: Border.all(color: AppTheme.border),
       ),
@@ -854,7 +938,7 @@ class _EvalHistoryTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppTheme.sp8),
       padding: const EdgeInsets.all(AppTheme.sp12),
       decoration: BoxDecoration(
-        color: AppTheme.surface1,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: AppTheme.bMD,
         border: Border.all(color: AppTheme.border),
       ),
@@ -909,7 +993,7 @@ class _EvalHistoryTile extends StatelessWidget {
           const SizedBox(height: AppTheme.sp6),
           // Contenido truncado
           Text(
-            evaluation.contenido,
+            sanitizeContent(evaluation.contenido),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -995,12 +1079,12 @@ class _TeacherProjectTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.go(AppRoutes.projectDetailOf(project.id)),
+      onTap: () => context.push(AppRoutes.projectDetailOf(project.id)),
       child: Container(
         margin: const EdgeInsets.only(bottom: AppTheme.sp8),
         padding: const EdgeInsets.all(AppTheme.sp12),
         decoration: BoxDecoration(
-          color: AppTheme.surface1,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: AppTheme.bMD,
           border: Border.all(color: AppTheme.border),
         ),
@@ -1112,6 +1196,61 @@ class _ProjectThumbnailPlaceholder extends StatelessWidget {
         Icons.folder_copy_outlined,
         size: 20,
         color: AppTheme.textDisabled,
+      ),
+    );
+  }
+}
+
+// ── _ProfileNavItem ────────────────────────────────────────────────────────
+
+/// Item de navegación inferior reutilizable en la pantalla de Perfil.
+class _ProfileNavItem extends StatelessWidget {
+  const _ProfileNavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.surface3 : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Icon(
+                icon,
+                size: 22,
+                color: isSelected ? AppTheme.white : AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? AppTheme.white : AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
