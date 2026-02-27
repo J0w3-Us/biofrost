@@ -37,6 +37,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   final _regEmailCtrl = TextEditingController();
   final _regPassCtrl = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
+  final _organizacionCtrl = TextEditingController(); // Para evaluadores con Gmail
 
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
@@ -60,6 +61,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     _regEmailCtrl.dispose();
     _regPassCtrl.dispose();
     _confirmPassCtrl.dispose();
+    _organizacionCtrl.dispose();
     _fadeCtrl.dispose();
     super.dispose();
   }
@@ -85,6 +87,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
           apellidoPaterno: _apellidoCtrl.text.trim().isEmpty
               ? null
               : _apellidoCtrl.text.trim(),
+          organizacion: _organizacionCtrl.text.trim().isEmpty
+              ? null
+              : _organizacionCtrl.text.trim(),
         );
   }
 
@@ -109,8 +114,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'Ingresa tu correo.';
     if (!value.contains('@')) return 'Ingresa un correo válido.';
-    if (!value.endsWith('@atmetropilonana.edu.mx'))
-      return 'Usa tu correo institucional (@atmetropilonana.edu.mx).';
+    // Permitir emails institucionales Y Gmail para evaluadores
+    if (!value.endsWith('@utmetropolitana.edu.mx') && !value.endsWith('@gmail.com'))
+      return 'Usa tu correo institucional (@utmetropolitana.edu.mx) o Gmail (@gmail.com)';
     return null;
   }
 
@@ -220,6 +226,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           emailCtrl: _regEmailCtrl,
                           passwordCtrl: _regPassCtrl,
                           confirmCtrl: _confirmPassCtrl,
+                          organizacionCtrl: _organizacionCtrl,
                           isLoading: isLoading,
                           errorMessage:
                               error != null ? _errorMessage(error) : null,
@@ -378,7 +385,7 @@ class _LoginForm extends StatelessWidget {
         children: [
           BioInput(
             controller: emailCtrl,
-            hint: 'usuario@atmetropilonana.edu.mx',
+            hint: 'usuario@utmetropolitana.edu.mx',
             label: 'Correo institucional',
             prefixIcon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
@@ -441,6 +448,7 @@ class _RegisterForm extends StatefulWidget {
     required this.emailCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
+    required this.organizacionCtrl,
     required this.isLoading,
     required this.errorMessage,
     required this.suggestLogin,
@@ -458,6 +466,7 @@ class _RegisterForm extends StatefulWidget {
   final TextEditingController emailCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
+  final TextEditingController organizacionCtrl;
   final bool isLoading;
   final String? errorMessage;
   final bool suggestLogin;
@@ -474,6 +483,15 @@ class _RegisterForm extends StatefulWidget {
 
 class _RegisterFormState extends State<_RegisterForm> {
   bool _showPassword = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Escuchar cambios en email para mostrar/ocultar campo organización
+    widget.emailCtrl.addListener(() {
+      setState(() {}); // Trigger rebuild cuando cambia el email
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -514,14 +532,26 @@ class _RegisterFormState extends State<_RegisterForm> {
           // ── Correo ────────────────────────────────────────────────
           BioInput(
             controller: widget.emailCtrl,
-            hint: 'usuario@atmetropilonana.edu.mx',
-            label: 'Correo institucional *',
+            hint: 'usuario@utmetropolitana.edu.mx o usuario@gmail.com',
+            label: 'Correo *',
             prefixIcon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             validator: widget.validateEmail,
           ),
           const SizedBox(height: AppTheme.sp16),
+
+          // ── Organización (solo para Gmail) ────────────────────────
+          if (widget.emailCtrl.text.endsWith('@gmail.com')) ...[
+            BioInput(
+              controller: widget.organizacionCtrl,
+              hint: 'Empresa, freelance, etc.',
+              label: 'Organización (opcional)',
+              prefixIcon: Icons.business_outlined,
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: AppTheme.sp16),
+          ],
 
           // ── Contraseña ────────────────────────────────────────────
           BioInput(

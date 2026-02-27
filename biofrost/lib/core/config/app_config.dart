@@ -52,7 +52,7 @@ class AppConfig {
 
   // ── Firebase ───────────────────────────────────────────────────────
   /// Dominio institucional permitido para autenticación de docentes.
-  static const String institutionalDomain = 'atmetropilonana.edu.mx';
+  static const String institutionalDomain = 'utmetropolitana.edu.mx';
 
   // ── Paginación ─────────────────────────────────────────────────────
   static const int rankingMaxVisible = 20;

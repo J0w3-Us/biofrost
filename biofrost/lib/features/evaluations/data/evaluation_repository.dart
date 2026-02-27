@@ -11,7 +11,7 @@ import 'package:biofrost/features/evaluations/domain/models/evaluation_read_mode
 ///
 /// Permisos (documentado en 05_EVALUATIONS.md):
 /// - Ver: todos los usuarios autenticados
-/// - Crear sugerencia: cualquier Docente
+/// - Crear sugerencia: Docente, Evaluador, Invitado
 /// - Crear evaluación oficial: solo Docente titular o Admin
 /// - Cambiar visibilidad: Docentes y Admin
 class EvaluationRepository {
@@ -173,7 +173,8 @@ class EvaluationRepository {
     return isDocente && (isTitular || isAdmin);
   }
 
-  bool canSendSuggestion(String userRol) => userRol == 'Docente';
+  bool canSendSuggestion(String userRol) => 
+      userRol == 'Docente' || userRol == 'Evaluador' || userRol == 'Invitado';
 
   bool canToggleVisibility(String userRol) {
     return userRol == 'Docente' ||

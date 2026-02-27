@@ -143,7 +143,7 @@ class AuthNotifier extends Notifier<AuthState> {
     if (state is AuthStateError) state = AuthStateUnauthenticated();
   }
 
-  /// Registra un nuevo Docente (Firebase + backend).
+  /// Registra un nuevo usuario (Docente o Evaluador) (Firebase + backend).
   ///
   /// Emite [AuthStateLoading] → [AuthStateAuthenticated] o [AuthStateError].
   Future<void> registerDocente({
@@ -151,6 +151,7 @@ class AuthNotifier extends Notifier<AuthState> {
     required String password,
     required String nombre,
     String? apellidoPaterno,
+    String? organizacion,
   }) async {
     _isActivelySigningIn = true;
     state = AuthStateLoading();
@@ -160,6 +161,7 @@ class AuthNotifier extends Notifier<AuthState> {
         password: password,
         nombre: nombre,
         apellidoPaterno: apellidoPaterno,
+        organizacion: organizacion,
       );
       state = AuthStateAuthenticated(user);
     } on AppException catch (e) {

@@ -58,12 +58,14 @@ class AuthService {
   // ── CQRS Command: Register Docente ────────────────────────────────
 
   /// Crea cuenta en Firebase → POST /api/auth/register.
+  /// Detecta automáticamente el rol basado en el dominio del email.
   Future<UserReadModel> registerDocente({
     required String email,
     required String password,
     required String nombre,
     String? apellidoPaterno,
     String? apellidoMaterno,
+    String? organizacion,
   }) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -75,6 +77,12 @@ class AuthService {
         throw const AuthException(message: 'No se pudo crear la cuenta.');
       }
 
+      // Detectar rol automáticamente
+      String rol = 'Evaluador';
+      if (email.endsWith('@utmetropolitana.edu.mx')) {
+        rol = 'Docente';
+      }
+
       await _api.post<Map<String, dynamic>>(
         ApiEndpoints.register,
         data: {
@@ -83,7 +91,8 @@ class AuthService {
           'nombre': nombre,
           'apellidoPaterno': apellidoPaterno,
           'apellidoMaterno': apellidoMaterno,
-          'rol': 'Docente',
+          'organizacion': organizacion,
+          'rol': rol,
         },
         authenticated: false,
       );
@@ -171,8 +180,8 @@ class AuthService {
       userId: 'visitor_${DateTime.now().millisecondsSinceEpoch}',
       email: '',
       nombre: 'Visitante',
-      rol: 'Invitado',
-      organizacion: organizacion,
+      rol: 'Evaluador', // Cambiar de Invitado a Evaluador para más permisos
+      organizacion: organizacion ?? 'Visitante',
     );
   }
 

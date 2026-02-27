@@ -28,7 +28,7 @@ class UserReadModel extends Equatable {
   final String email;
   final String nombre;
 
-  /// 'Docente' | 'Alumno' | 'admin' | 'SuperAdmin' | 'Invitado'
+  /// 'Docente' | 'Alumno' | 'admin' | 'SuperAdmin' | 'Invitado' | 'Evaluador'
   final String rol;
   final String? apellidoPaterno;
   final String? apellidoMaterno;
@@ -61,7 +61,11 @@ class UserReadModel extends Equatable {
 
   bool get isDocente => rol == 'Docente';
   bool get isVisitante => rol == 'Invitado';
+  bool get isEvaluador => rol == 'Evaluador';
   bool get isAdmin => rol == 'admin' || rol == 'SuperAdmin';
+  
+  /// Puede evaluar proyectos (Docente o Evaluador)
+  bool get canEvaluate => isDocente || isEvaluador || isVisitante;
 
   String get avatarUrl {
     if (fotoUrl != null && fotoUrl!.isNotEmpty) return fotoUrl!;

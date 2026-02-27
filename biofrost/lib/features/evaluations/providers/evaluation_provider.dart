@@ -96,7 +96,7 @@ class EvaluationPanelState {
 /// - [submitEvaluation] → POST /api/evaluations (Command)
 /// - [toggleVisibility] → PATCH /api/evaluations/{id}/visibility (Command + Optimistic Update)
 ///
-/// Acceso: Solo Docentes autenticados.
+/// Acceso: Docentes, Evaluadores e Invitados autenticados.
 class EvaluationPanelNotifier
     extends FamilyNotifier<EvaluationPanelState, String> {
   @override
@@ -145,7 +145,7 @@ class EvaluationPanelNotifier
   /// Envía una nueva evaluación al backend.
   ///
   /// Verifica permisos antes de enviar:
-  /// - Solo Docentes pueden crear evaluaciones.
+  /// - Docentes, Evaluadores e Invitados pueden crear sugerencias.
   /// - Solo el Docente titular puede emitir evaluaciones oficiales.
   ///
   /// Actualiza la lista local inmediatamente al recibir respuesta.

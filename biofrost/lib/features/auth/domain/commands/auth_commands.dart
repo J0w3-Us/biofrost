@@ -20,9 +20,10 @@ class SignInDocenteCommand {
 
 // ── Command: Registrar Docente ─────────────────────────────────────────
 
-/// Command para registrar un nuevo Docente en Firebase + backend.
+/// Command para registrar un nuevo usuario en Firebase + backend.
 ///
 /// Endpoint: POST /api/auth/register
+/// Roles: Docente (institucional) o Evaluador (Gmail)
 class RegisterDocenteCommand {
   const RegisterDocenteCommand({
     required this.email,
@@ -30,6 +31,7 @@ class RegisterDocenteCommand {
     required this.nombre,
     this.apellidoPaterno,
     this.apellidoMaterno,
+    this.organizacion,
   });
 
   final String email;
@@ -37,6 +39,14 @@ class RegisterDocenteCommand {
   final String nombre;
   final String? apellidoPaterno;
   final String? apellidoMaterno;
+  final String? organizacion;
+
+  /// Detecta rol basado en el dominio del email
+  String get detectedRole {
+    if (email.endsWith('@utmetropolitana.edu.mx')) return 'Docente';
+    if (email.endsWith('@gmail.com')) return 'Evaluador';
+    return 'Evaluador'; // Fallback para otros dominios
+  }
 
   Map<String, dynamic> toRegisterPayload(String firebaseUid) => {
         'firebaseUid': firebaseUid,
@@ -44,7 +54,8 @@ class RegisterDocenteCommand {
         'nombre': nombre,
         'apellidoPaterno': apellidoPaterno,
         'apellidoMaterno': apellidoMaterno,
-        'rol': 'Docente',
+        'organizacion': organizacion,
+        'rol': detectedRole,
       };
 }
 

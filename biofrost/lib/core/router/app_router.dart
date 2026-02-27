@@ -73,10 +73,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Mientras carga → no redirigir (splash)
       if (authState is AuthStateLoading) return null;
 
-      // Docente o visitante con sesión activa en login → ir a showcase
-      if (location == AppRoutes.login &&
-          (authState is AuthStateAuthenticated ||
-              authState is AuthStateVisitor)) {
+      // Solo Docente autenticado en login → ir a showcase
+      // Los visitantes SÍ pueden acceder al login para autenticarse
+      if (location == AppRoutes.login && authState is AuthStateAuthenticated) {
         return AppRoutes.showcase;
       }
 
